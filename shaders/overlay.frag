@@ -7,7 +7,7 @@ layout(std140, binding = 0) uniform buf {
     mat4 qt_Matrix;
     float qt_Opacity;
 
-    // Viewport bounds
+    // Viewport bounds - must match QML property order exactly
     float topLeftLat;
     float topLeftLon;
     float bottomRightLat;
@@ -17,11 +17,7 @@ layout(std140, binding = 0) uniform buf {
     int pointCount;
     float idwPower;
 
-    // Padding for alignment
-    float _pad1;
-    float _pad2;
-
-    // Data points (lat, lon, value) - vec4 for alignment, w unused
+    // Data points - vec4 for std140 alignment (vector3d maps to vec4)
     vec4 point0;
     vec4 point1;
     vec4 point2;
@@ -41,19 +37,15 @@ vec3 valueToColor(float value) {
 
     vec3 color;
     if (value < 0.25) {
-        // Blue to Cyan
         float t = value / 0.25;
         color = mix(vec3(0.0, 0.0, 1.0), vec3(0.0, 1.0, 1.0), t);
     } else if (value < 0.5) {
-        // Cyan to Green
         float t = (value - 0.25) / 0.25;
         color = mix(vec3(0.0, 1.0, 1.0), vec3(0.0, 1.0, 0.0), t);
     } else if (value < 0.75) {
-        // Green to Yellow
         float t = (value - 0.5) / 0.25;
         color = mix(vec3(0.0, 1.0, 0.0), vec3(1.0, 1.0, 0.0), t);
     } else {
-        // Yellow to Red
         float t = (value - 0.75) / 0.25;
         color = mix(vec3(1.0, 1.0, 0.0), vec3(1.0, 0.0, 0.0), t);
     }
@@ -66,7 +58,6 @@ float geoDistance(vec2 p1, vec2 p2) {
     float dLat = p2.x - p1.x;
     float dLon = p2.y - p1.y;
 
-    // Correct longitude distance based on latitude
     float avgLat = (p1.x + p2.x) * 0.5;
     float lonScale = cos(radians(avgLat));
 
@@ -90,13 +81,11 @@ vec3 getPoint(int idx) {
 
 void main() {
     // Convert texture coordinates to lat/lon
-    // Y is inverted because latitude decreases downward on screen
     float lat = mix(topLeftLat, bottomRightLat, qt_TexCoord0.y);
     float lon = mix(topLeftLon, bottomRightLon, qt_TexCoord0.x);
     vec2 currentPos = vec2(lat, lon);
 
     // Inverse Distance Weighting interpolation
-    // All points contribute to every pixel - no distance cutoff
     float weightSum = 0.0;
     float valueSum = 0.0;
 
@@ -104,31 +93,25 @@ void main() {
         if (i >= pointCount) break;
 
         vec3 point = getPoint(i);
-        vec2 pointPos = point.xy;  // lat, lon
+        vec2 pointPos = point.xy;
         float pointValue = point.z;
 
         float dist = geoDistance(currentPos, pointPos);
 
-        // Prevent division by zero for points very close to data point
         if (dist < 0.001) {
-            // Essentially at the data point - use its exact value
             weightSum = 1.0;
             valueSum = pointValue;
             break;
         }
 
-        // IDW weight: 1 / distance^power
         float weight = 1.0 / pow(dist, idwPower);
         weightSum += weight;
         valueSum += weight * pointValue;
     }
 
-    // Calculate interpolated value
-    float value = valueSum / weightSum;
+    // Handle case where no points contribute
+    float value = (weightSum > 0.0) ? (valueSum / weightSum) : 0.5;
 
-    // Convert value to color
     vec3 color = valueToColor(value);
-
-    // Output with full coverage - opacity controlled by qt_Opacity
     fragColor = vec4(color, qt_Opacity);
 }

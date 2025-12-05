@@ -9,7 +9,7 @@ layout(std140, binding = 0) uniform buf {
     mat4 qt_Matrix;
     float qt_Opacity;
 
-    // Viewport bounds
+    // Viewport bounds - must match QML property order exactly
     float topLeftLat;
     float topLeftLon;
     float bottomRightLat;
@@ -19,11 +19,7 @@ layout(std140, binding = 0) uniform buf {
     int pointCount;
     float idwPower;
 
-    // Padding for alignment
-    float _pad1;
-    float _pad2;
-
-    // Data points
+    // Data points - vec4 for std140 alignment (vector3d maps to vec4)
     vec4 point0;
     vec4 point1;
     vec4 point2;
