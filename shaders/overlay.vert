@@ -9,17 +9,9 @@ layout(std140, binding = 0) uniform buf {
     mat4 qt_Matrix;
     float qt_Opacity;
 
-    // Viewport bounds - must match QML property order exactly
-    float topLeftLat;
-    float topLeftLon;
-    float bottomRightLat;
-    float bottomRightLon;
-
-    // IDW parameters
-    int pointCount;
-    float idwPower;
-
-    // Data points - vec4 for std140 alignment (vector3d maps to vec4)
+    // All custom uniforms as vec4 for proper std140 alignment
+    vec4 viewportBounds;  // (topLeftLat, topLeftLon, bottomRightLat, bottomRightLon)
+    vec4 idwParams;       // (pointCount, idwPower, unused, unused)
     vec4 point0;
     vec4 point1;
     vec4 point2;

@@ -176,42 +176,28 @@ ApplicationWindow {
                 visible: showOverlay.checked
                 opacity: opacitySlider.value
 
-                // Calculate viewport bounds from screen corners
-                // Must reference map state properties to trigger re-evaluation on pan/zoom
-                topLeftLat: {
+                // Viewport bounds as vec4 (topLeftLat, topLeftLon, bottomRightLat, bottomRightLon)
+                viewportBounds: {
                     map.center; map.zoomLevel; map.width; map.height;
-                    return map.toCoordinate(Qt.point(0, 0), false).latitude
-                }
-                topLeftLon: {
-                    map.center; map.zoomLevel; map.width; map.height;
-                    return map.toCoordinate(Qt.point(0, 0), false).longitude
-                }
-                bottomRightLat: {
-                    map.center; map.zoomLevel; map.width; map.height;
-                    return map.toCoordinate(Qt.point(map.width, map.height), false).latitude
-                }
-                bottomRightLon: {
-                    map.center; map.zoomLevel; map.width; map.height;
-                    return map.toCoordinate(Qt.point(map.width, map.height), false).longitude
+                    var tl = map.toCoordinate(Qt.point(0, 0), false)
+                    var br = map.toCoordinate(Qt.point(map.width, map.height), false)
+                    return Qt.vector4d(tl.latitude, tl.longitude, br.latitude, br.longitude)
                 }
 
-                // Data point count
-                pointCount: dataPointsModel.count
+                // IDW params as vec4 (pointCount, idwPower, unused, unused)
+                idwParams: Qt.vector4d(dataPointsModel.count, powerSlider.value, 0, 0)
 
-                // IDW power parameter (higher = sharper transitions near points)
-                idwPower: powerSlider.value
-
-                // Pass data points
-                point0: Qt.vector3d(dataPointsModel.get(0).lat, dataPointsModel.get(0).lon, dataPointsModel.get(0).value)
-                point1: Qt.vector3d(dataPointsModel.get(1).lat, dataPointsModel.get(1).lon, dataPointsModel.get(1).value)
-                point2: Qt.vector3d(dataPointsModel.get(2).lat, dataPointsModel.get(2).lon, dataPointsModel.get(2).value)
-                point3: Qt.vector3d(dataPointsModel.get(3).lat, dataPointsModel.get(3).lon, dataPointsModel.get(3).value)
-                point4: Qt.vector3d(dataPointsModel.get(4).lat, dataPointsModel.get(4).lon, dataPointsModel.get(4).value)
-                point5: Qt.vector3d(dataPointsModel.get(5).lat, dataPointsModel.get(5).lon, dataPointsModel.get(5).value)
-                point6: Qt.vector3d(dataPointsModel.get(6).lat, dataPointsModel.get(6).lon, dataPointsModel.get(6).value)
-                point7: Qt.vector3d(dataPointsModel.get(7).lat, dataPointsModel.get(7).lon, dataPointsModel.get(7).value)
-                point8: Qt.vector3d(dataPointsModel.get(8).lat, dataPointsModel.get(8).lon, dataPointsModel.get(8).value)
-                point9: Qt.vector3d(dataPointsModel.get(9).lat, dataPointsModel.get(9).lon, dataPointsModel.get(9).value)
+                // Pass data points as vec4 (lat, lon, value, unused)
+                point0: Qt.vector4d(dataPointsModel.get(0).lat, dataPointsModel.get(0).lon, dataPointsModel.get(0).value, 0)
+                point1: Qt.vector4d(dataPointsModel.get(1).lat, dataPointsModel.get(1).lon, dataPointsModel.get(1).value, 0)
+                point2: Qt.vector4d(dataPointsModel.get(2).lat, dataPointsModel.get(2).lon, dataPointsModel.get(2).value, 0)
+                point3: Qt.vector4d(dataPointsModel.get(3).lat, dataPointsModel.get(3).lon, dataPointsModel.get(3).value, 0)
+                point4: Qt.vector4d(dataPointsModel.get(4).lat, dataPointsModel.get(4).lon, dataPointsModel.get(4).value, 0)
+                point5: Qt.vector4d(dataPointsModel.get(5).lat, dataPointsModel.get(5).lon, dataPointsModel.get(5).value, 0)
+                point6: Qt.vector4d(dataPointsModel.get(6).lat, dataPointsModel.get(6).lon, dataPointsModel.get(6).value, 0)
+                point7: Qt.vector4d(dataPointsModel.get(7).lat, dataPointsModel.get(7).lon, dataPointsModel.get(7).value, 0)
+                point8: Qt.vector4d(dataPointsModel.get(8).lat, dataPointsModel.get(8).lon, dataPointsModel.get(8).value, 0)
+                point9: Qt.vector4d(dataPointsModel.get(9).lat, dataPointsModel.get(9).lon, dataPointsModel.get(9).value, 0)
             }
 
             // Info panel
