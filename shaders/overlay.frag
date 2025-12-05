@@ -22,6 +22,21 @@ layout(std140, binding = 0) uniform buf {
     vec4 point9;
 };
 
+const float PI = 3.14159265359;
+
+// Convert latitude to Web Mercator Y coordinate
+float latToMercatorY(float lat) {
+    // Clamp latitude to avoid infinity at poles
+    lat = clamp(lat, -85.0, 85.0);
+    float latRad = radians(lat);
+    return log(tan(PI / 4.0 + latRad / 2.0));
+}
+
+// Convert Web Mercator Y coordinate back to latitude
+float mercatorYToLat(float y) {
+    return degrees(2.0 * atan(exp(y)) - PI / 2.0);
+}
+
 // Color gradient function: maps value (0-1) to a color
 // Blue -> Cyan -> Green -> Yellow -> Red
 vec3 valueToColor(float value) {
@@ -82,9 +97,17 @@ void main() {
     int pointCount = int(idwParams.x);
     float idwPower = idwParams.y;
 
-    // Convert texture coordinates to lat/lon
-    float lat = mix(topLeftLat, bottomRightLat, qt_TexCoord0.y);
+    // Convert viewport latitudes to Mercator Y coordinates
+    float topMercY = latToMercatorY(topLeftLat);
+    float bottomMercY = latToMercatorY(bottomRightLat);
+
+    // Interpolate in Mercator space, then convert back to latitude
+    float mercY = mix(topMercY, bottomMercY, qt_TexCoord0.y);
+    float lat = mercatorYToLat(mercY);
+
+    // Longitude is linear, no conversion needed
     float lon = mix(topLeftLon, bottomRightLon, qt_TexCoord0.x);
+
     vec2 currentPos = vec2(lat, lon);
 
     // Inverse Distance Weighting interpolation
@@ -117,6 +140,5 @@ void main() {
     vec3 color = valueToColor(value);
 
     // Use premultiplied alpha for correct Qt compositing
-    // This ensures opacity only affects transparency, not color
     fragColor = vec4(color * qt_Opacity, qt_Opacity);
 }
