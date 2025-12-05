@@ -114,22 +114,32 @@ ApplicationWindow {
                 center: QtPositioning.coordinate(30, 0)
                 zoomLevel: 2
 
-                // Helper function to calculate viewport bounds
-                function getViewportBounds() {
-                    var tl = toCoordinate(Qt.point(0, 0), false)
-                    var br = toCoordinate(Qt.point(width, height), false)
-                    return Qt.vector4d(tl.latitude, tl.longitude, br.latitude, br.longitude)
+                // Helper function to calculate viewport bounds using visibleRegion
+                function updateViewport() {
+                    var rect = visibleRegion.boundingGeoRectangle()
+                    if (rect.isValid) {
+                        currentViewport = Qt.vector4d(
+                            rect.topLeft.latitude,
+                            rect.topLeft.longitude,
+                            rect.bottomRight.latitude,
+                            rect.bottomRight.longitude
+                        )
+                    }
                 }
 
-                // Property that updates when map view changes
-                property vector4d currentViewport: getViewportBounds()
+                // Property that holds the current viewport bounds
+                property vector4d currentViewport: Qt.vector4d(85, -180, -85, 180)
 
-                // Update viewport on any map change
-                onCenterChanged: currentViewport = getViewportBounds()
-                onZoomLevelChanged: currentViewport = getViewportBounds()
-                onWidthChanged: currentViewport = getViewportBounds()
-                onHeightChanged: currentViewport = getViewportBounds()
-                onBearingChanged: currentViewport = getViewportBounds()
+                // Use Qt.callLater to ensure map state is fully updated before querying
+                onCenterChanged: Qt.callLater(updateViewport)
+                onZoomLevelChanged: Qt.callLater(updateViewport)
+                onWidthChanged: Qt.callLater(updateViewport)
+                onHeightChanged: Qt.callLater(updateViewport)
+                onBearingChanged: Qt.callLater(updateViewport)
+                onVisibleRegionChanged: Qt.callLater(updateViewport)
+
+                // Initial update after component is ready
+                Component.onCompleted: Qt.callLater(updateViewport)
 
                 // Enable map interaction
                 PinchHandler {
