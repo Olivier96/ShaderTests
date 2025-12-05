@@ -114,6 +114,23 @@ ApplicationWindow {
                 center: QtPositioning.coordinate(30, 0)
                 zoomLevel: 2
 
+                // Helper function to calculate viewport bounds
+                function getViewportBounds() {
+                    var tl = toCoordinate(Qt.point(0, 0), false)
+                    var br = toCoordinate(Qt.point(width, height), false)
+                    return Qt.vector4d(tl.latitude, tl.longitude, br.latitude, br.longitude)
+                }
+
+                // Property that updates when map view changes
+                property vector4d currentViewport: getViewportBounds()
+
+                // Update viewport on any map change
+                onCenterChanged: currentViewport = getViewportBounds()
+                onZoomLevelChanged: currentViewport = getViewportBounds()
+                onWidthChanged: currentViewport = getViewportBounds()
+                onHeightChanged: currentViewport = getViewportBounds()
+                onBearingChanged: currentViewport = getViewportBounds()
+
                 // Enable map interaction
                 PinchHandler {
                     id: pinch
@@ -176,13 +193,8 @@ ApplicationWindow {
                 visible: showOverlay.checked
                 opacity: opacitySlider.value
 
-                // Viewport bounds as vec4 (topLeftLat, topLeftLon, bottomRightLat, bottomRightLon)
-                viewportBounds: {
-                    map.center; map.zoomLevel; map.width; map.height;
-                    var tl = map.toCoordinate(Qt.point(0, 0), false)
-                    var br = map.toCoordinate(Qt.point(map.width, map.height), false)
-                    return Qt.vector4d(tl.latitude, tl.longitude, br.latitude, br.longitude)
-                }
+                // Bind directly to map's viewport property (updated via signals)
+                viewportBounds: map.currentViewport
 
                 // IDW params as vec4 (pointCount, idwPower, unused, unused)
                 idwParams: Qt.vector4d(dataPointsModel.count, powerSlider.value, 0, 0)

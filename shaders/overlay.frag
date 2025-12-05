@@ -115,5 +115,8 @@ void main() {
     float value = (weightSum > 0.0) ? (valueSum / weightSum) : 0.5;
 
     vec3 color = valueToColor(value);
-    fragColor = vec4(color, qt_Opacity);
+
+    // Use premultiplied alpha for correct Qt compositing
+    // This ensures opacity only affects transparency, not color
+    fragColor = vec4(color * qt_Opacity, qt_Opacity);
 }

@@ -13,6 +13,9 @@ import QtQuick
 ShaderEffect {
     id: root
 
+    // Enable proper alpha blending for transparency
+    blending: true
+
     // Viewport bounds packed as vec4 for proper std140 alignment
     // (topLeftLat, topLeftLon, bottomRightLat, bottomRightLon)
     property vector4d viewportBounds: Qt.vector4d(85, -180, -85, 180)
