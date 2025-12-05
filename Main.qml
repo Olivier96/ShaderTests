@@ -114,6 +114,16 @@ ApplicationWindow {
                 center: QtPositioning.coordinate(30, 0)
                 zoomLevel: 2
 
+                // Prevent world wrapping and extreme zoom out
+                minimumZoomLevel: 2
+                maximumZoomLevel: 18
+
+                // Limit panning bounds to prevent world wrapping
+                boundaryRectangle: QtPositioning.rectangle(
+                    QtPositioning.coordinate(85, -180),   // top-left
+                    QtPositioning.coordinate(-85, 180)    // bottom-right
+                )
+
                 // Helper function to calculate viewport bounds using visibleRegion
                 function updateViewport() {
                     var rect = visibleRegion.boundingGeoRectangle()
