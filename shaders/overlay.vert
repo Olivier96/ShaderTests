@@ -17,11 +17,11 @@ layout(std140, binding = 0) uniform buf {
 
     // IDW parameters
     int pointCount;
-    float influenceRadius;
     float idwPower;
 
-    // Padding
-    float _padding;
+    // Padding for alignment
+    float _pad1;
+    float _pad2;
 
     // Data points
     vec4 point0;

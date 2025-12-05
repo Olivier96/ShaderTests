@@ -8,6 +8,7 @@ import QtQuick
  *
  * The shader uses Inverse Distance Weighting (IDW) interpolation to
  * create smooth color transitions between data points.
+ * The entire map is covered - points act as color anchors.
  */
 ShaderEffect {
     id: root
@@ -21,10 +22,7 @@ ShaderEffect {
     // Number of active data points
     property int pointCount: 10
 
-    // Influence radius for IDW (in degrees)
-    property real influenceRadius: 20.0
-
-    // Power parameter for IDW (higher = sharper transitions)
+    // Power parameter for IDW (higher = sharper transitions near points)
     property real idwPower: 2.0
 
     // Data points as vec3(lat, lon, value)

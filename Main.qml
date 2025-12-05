@@ -30,26 +30,6 @@ ApplicationWindow {
         ListElement { lat: 28.6139; lon: 77.2090; value: 0.8 }   // New Delhi
     }
 
-    // Helper function to convert model to arrays for shader
-    function getDataPointArrays() {
-        var positions = [];
-        var values = [];
-
-        for (var i = 0; i < dataPointsModel.count; i++) {
-            var item = dataPointsModel.get(i);
-            positions.push(Qt.vector2d(item.lat, item.lon));
-            values.push(item.value);
-        }
-
-        // Pad arrays to fixed size (16 points max for this example)
-        while (positions.length < 16) {
-            positions.push(Qt.vector2d(0, 0));
-            values.push(0);
-        }
-
-        return { positions: positions, values: values };
-    }
-
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
@@ -88,15 +68,15 @@ ApplicationWindow {
                 }
 
                 Label {
-                    text: "Influence Radius:"
+                    text: "IDW Power:"
                     color: "white"
                 }
 
                 Slider {
-                    id: radiusSlider
-                    from: 5
-                    to: 50
-                    value: 20
+                    id: powerSlider
+                    from: 0.5
+                    to: 4.0
+                    value: 2.0
                     Layout.preferredWidth: 150
                 }
 
@@ -111,6 +91,7 @@ ApplicationWindow {
 
         // Map container
         Item {
+            id: mapContainer
             Layout.fillWidth: true
             Layout.fillHeight: true
 
@@ -188,29 +169,35 @@ ApplicationWindow {
                 }
             }
 
-            // Shader overlay
+            // Shader overlay - calculate viewport from actual screen corners
             MapDataOverlay {
                 id: overlay
                 anchors.fill: parent
                 visible: showOverlay.checked
                 opacity: opacitySlider.value
 
-                // Pass map viewport information
-                property var visibleRegion: map.visibleRegion.boundingGeoRectangle()
+                // Calculate viewport bounds from screen corners
+                // This properly tracks map pan/zoom/resize
+                property var topLeftCoord: map.toCoordinate(Qt.point(0, 0), false)
+                property var topRightCoord: map.toCoordinate(Qt.point(map.width, 0), false)
+                property var bottomLeftCoord: map.toCoordinate(Qt.point(0, map.height), false)
+                property var bottomRightCoord: map.toCoordinate(Qt.point(map.width, map.height), false)
 
-                topLeftLat: visibleRegion.topLeft.latitude
-                topLeftLon: visibleRegion.topLeft.longitude
-                bottomRightLat: visibleRegion.bottomRight.latitude
-                bottomRightLon: visibleRegion.bottomRight.longitude
+                // Force re-evaluation when map changes
+                property real _trigger: map.center.latitude + map.center.longitude + map.zoomLevel + map.width + map.height
+
+                topLeftLat: topLeftCoord.latitude
+                topLeftLon: topLeftCoord.longitude
+                bottomRightLat: bottomRightCoord.latitude
+                bottomRightLon: bottomRightCoord.longitude
 
                 // Data point count
                 pointCount: dataPointsModel.count
 
-                // Influence radius for IDW interpolation
-                influenceRadius: radiusSlider.value
+                // IDW power parameter (higher = sharper transitions near points)
+                idwPower: powerSlider.value
 
-                // Pass data points as arrays
-                // Note: For production with 400k points, use a texture-based approach
+                // Pass data points
                 point0: Qt.vector3d(dataPointsModel.get(0).lat, dataPointsModel.get(0).lon, dataPointsModel.get(0).value)
                 point1: Qt.vector3d(dataPointsModel.get(1).lat, dataPointsModel.get(1).lon, dataPointsModel.get(1).value)
                 point2: Qt.vector3d(dataPointsModel.get(2).lat, dataPointsModel.get(2).lon, dataPointsModel.get(2).value)

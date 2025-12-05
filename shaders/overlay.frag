@@ -15,11 +15,11 @@ layout(std140, binding = 0) uniform buf {
 
     // IDW parameters
     int pointCount;
-    float influenceRadius;
     float idwPower;
 
-    // Padding to ensure alignment
-    float _padding;
+    // Padding for alignment
+    float _pad1;
+    float _pad2;
 
     // Data points (lat, lon, value) - vec4 for alignment, w unused
     vec4 point0;
@@ -61,17 +61,12 @@ vec3 valueToColor(float value) {
     return color;
 }
 
-// Calculate great-circle distance approximation (simplified for speed)
-// For a proper implementation, use Haversine formula
+// Calculate geographic distance with latitude correction
 float geoDistance(vec2 p1, vec2 p2) {
-    // Simple Euclidean distance in degree space
-    // This works reasonably well for visualization purposes
-    // For more accuracy, implement proper spherical distance
-
     float dLat = p2.x - p1.x;
     float dLon = p2.y - p1.y;
 
-    // Approximate longitude correction based on latitude
+    // Correct longitude distance based on latitude
     float avgLat = (p1.x + p2.x) * 0.5;
     float lonScale = cos(radians(avgLat));
 
@@ -95,15 +90,15 @@ vec3 getPoint(int idx) {
 
 void main() {
     // Convert texture coordinates to lat/lon
-    // Note: Y is inverted because latitude decreases downward
+    // Y is inverted because latitude decreases downward on screen
     float lat = mix(topLeftLat, bottomRightLat, qt_TexCoord0.y);
     float lon = mix(topLeftLon, bottomRightLon, qt_TexCoord0.x);
     vec2 currentPos = vec2(lat, lon);
 
     // Inverse Distance Weighting interpolation
+    // All points contribute to every pixel - no distance cutoff
     float weightSum = 0.0;
     float valueSum = 0.0;
-    float minDist = 1e10;
 
     for (int i = 0; i < 10; i++) {
         if (i >= pointCount) break;
@@ -113,39 +108,27 @@ void main() {
         float pointValue = point.z;
 
         float dist = geoDistance(currentPos, pointPos);
-        minDist = min(minDist, dist);
 
-        if (dist < 0.0001) {
-            // Very close to a data point - use its exact value
+        // Prevent division by zero for points very close to data point
+        if (dist < 0.001) {
+            // Essentially at the data point - use its exact value
             weightSum = 1.0;
             valueSum = pointValue;
             break;
         }
 
-        // Only consider points within influence radius
-        if (dist < influenceRadius) {
-            float weight = 1.0 / pow(dist, idwPower);
-            weightSum += weight;
-            valueSum += weight * pointValue;
-        }
+        // IDW weight: 1 / distance^power
+        float weight = 1.0 / pow(dist, idwPower);
+        weightSum += weight;
+        valueSum += weight * pointValue;
     }
 
     // Calculate interpolated value
-    float value = 0.0;
-    float alpha = 0.0;
-
-    if (weightSum > 0.0) {
-        value = valueSum / weightSum;
-
-        // Fade out alpha based on distance from nearest point
-        // This creates a smooth boundary around the data coverage
-        alpha = 1.0 - smoothstep(0.0, influenceRadius, minDist);
-        alpha = pow(alpha, 0.5);  // Adjust falloff curve
-    }
+    float value = valueSum / weightSum;
 
     // Convert value to color
     vec3 color = valueToColor(value);
 
-    // Output with alpha for transparency
-    fragColor = vec4(color, alpha * qt_Opacity);
+    // Output with full coverage - opacity controlled by qt_Opacity
+    fragColor = vec4(color, qt_Opacity);
 }
