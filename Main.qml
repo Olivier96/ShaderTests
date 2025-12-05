@@ -177,19 +177,23 @@ ApplicationWindow {
                 opacity: opacitySlider.value
 
                 // Calculate viewport bounds from screen corners
-                // This properly tracks map pan/zoom/resize
-                property var topLeftCoord: map.toCoordinate(Qt.point(0, 0), false)
-                property var topRightCoord: map.toCoordinate(Qt.point(map.width, 0), false)
-                property var bottomLeftCoord: map.toCoordinate(Qt.point(0, map.height), false)
-                property var bottomRightCoord: map.toCoordinate(Qt.point(map.width, map.height), false)
-
-                // Force re-evaluation when map changes
-                property real _trigger: map.center.latitude + map.center.longitude + map.zoomLevel + map.width + map.height
-
-                topLeftLat: topLeftCoord.latitude
-                topLeftLon: topLeftCoord.longitude
-                bottomRightLat: bottomRightCoord.latitude
-                bottomRightLon: bottomRightCoord.longitude
+                // Must reference map state properties to trigger re-evaluation on pan/zoom
+                topLeftLat: {
+                    map.center; map.zoomLevel; map.width; map.height;
+                    return map.toCoordinate(Qt.point(0, 0), false).latitude
+                }
+                topLeftLon: {
+                    map.center; map.zoomLevel; map.width; map.height;
+                    return map.toCoordinate(Qt.point(0, 0), false).longitude
+                }
+                bottomRightLat: {
+                    map.center; map.zoomLevel; map.width; map.height;
+                    return map.toCoordinate(Qt.point(map.width, map.height), false).latitude
+                }
+                bottomRightLon: {
+                    map.center; map.zoomLevel; map.width; map.height;
+                    return map.toCoordinate(Qt.point(map.width, map.height), false).longitude
+                }
 
                 // Data point count
                 pointCount: dataPointsModel.count
