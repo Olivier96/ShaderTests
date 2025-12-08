@@ -134,15 +134,8 @@ ApplicationWindow {
                 // Property that holds the current viewport bounds
                 property vector4d currentViewport: Qt.vector4d(85, -180, -85, 180)
 
-                // Clamp center to prevent world wrapping, then update viewport
-                onCenterChanged: {
-                    var lat = Math.max(-85, Math.min(85, center.latitude))
-                    var lon = Math.max(-180, Math.min(180, center.longitude))
-                    if (lat !== center.latitude || lon !== center.longitude) {
-                        center = QtPositioning.coordinate(lat, lon)
-                    }
-                    Qt.callLater(updateViewport)
-                }
+                // Update viewport when center changes
+                onCenterChanged: Qt.callLater(updateViewport)
                 onZoomLevelChanged: Qt.callLater(updateViewport)
                 onWidthChanged: Qt.callLater(updateViewport)
                 onHeightChanged: Qt.callLater(updateViewport)
@@ -162,6 +155,7 @@ ApplicationWindow {
                     onScaleChanged: (delta) => {
                         map.zoomLevel = Math.max(2.5, Math.min(18, map.zoomLevel + Math.log2(delta)))
                         map.alignCoordinateToPoint(map.startCentroid, pinch.centroid.position)
+                        map.clampToWorldBounds()
                     }
                     onRotationChanged: (delta) => {
                         map.bearing -= delta
@@ -176,10 +170,8 @@ ApplicationWindow {
                                      ? PointerDevice.Mouse | PointerDevice.TouchPad
                                      : PointerDevice.Mouse
                     rotationScale: 1/120
-                    // Don't use property binding - manually clamp zoom
-                    onRotationChanged: {
-                        map.zoomLevel = Math.max(2.5, Math.min(18, map.zoomLevel + rotation * rotationScale))
-                    }
+                    property: "zoomLevel"
+                    onActiveChanged: if (!active) map.clampToWorldBounds()
                 }
 
                 DragHandler {
@@ -187,14 +179,39 @@ ApplicationWindow {
                     target: null
                     onTranslationChanged: (delta) => {
                         map.pan(-delta.x, -delta.y)
-                        // Force clamp after pan
-                        var lon = map.center.longitude
-                        if (lon < -170 || lon > 170) {
-                            map.center = QtPositioning.coordinate(
-                                map.center.latitude,
-                                Math.max(-170, Math.min(170, lon))
-                            )
-                        }
+                        map.clampToWorldBounds()
+                    }
+                }
+
+                // Function to clamp map so edges don't go past world bounds
+                function clampToWorldBounds() {
+                    var rect = visibleRegion.boundingGeoRectangle()
+                    if (!rect.isValid) return
+
+                    var leftLon = rect.topLeft.longitude
+                    var rightLon = rect.bottomRight.longitude
+                    var topLat = rect.topLeft.latitude
+                    var bottomLat = rect.bottomRight.latitude
+
+                    var newLon = center.longitude
+                    var newLat = center.latitude
+
+                    // Clamp longitude so edges stay within -180 to 180
+                    if (leftLon < -180) {
+                        newLon = center.longitude + (-180 - leftLon)
+                    } else if (rightLon > 180) {
+                        newLon = center.longitude - (rightLon - 180)
+                    }
+
+                    // Clamp latitude so edges stay within -85 to 85
+                    if (topLat > 85) {
+                        newLat = center.latitude - (topLat - 85)
+                    } else if (bottomLat < -85) {
+                        newLat = center.latitude + (-85 - bottomLat)
+                    }
+
+                    if (newLon !== center.longitude || newLat !== center.latitude) {
+                        center = QtPositioning.coordinate(newLat, newLon)
                     }
                 }
 
