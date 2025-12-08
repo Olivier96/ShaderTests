@@ -114,15 +114,9 @@ ApplicationWindow {
                 center: QtPositioning.coordinate(30, 0)
                 zoomLevel: 2
 
-                // Prevent world wrapping and extreme zoom out
-                minimumZoomLevel: 2
+                // Prevent extreme zoom out
+                minimumZoomLevel: 2.5
                 maximumZoomLevel: 18
-
-                // Limit panning bounds to prevent world wrapping
-                boundaryRectangle: QtPositioning.rectangle(
-                    QtPositioning.coordinate(85, -180),   // top-left
-                    QtPositioning.coordinate(-85, 180)    // bottom-right
-                )
 
                 // Helper function to calculate viewport bounds using visibleRegion
                 function updateViewport() {
@@ -140,8 +134,15 @@ ApplicationWindow {
                 // Property that holds the current viewport bounds
                 property vector4d currentViewport: Qt.vector4d(85, -180, -85, 180)
 
-                // Use Qt.callLater to ensure map state is fully updated before querying
-                onCenterChanged: Qt.callLater(updateViewport)
+                // Clamp center to prevent world wrapping, then update viewport
+                onCenterChanged: {
+                    var lat = Math.max(-85, Math.min(85, center.latitude))
+                    var lon = Math.max(-180, Math.min(180, center.longitude))
+                    if (lat !== center.latitude || lon !== center.longitude) {
+                        center = QtPositioning.coordinate(lat, lon)
+                    }
+                    Qt.callLater(updateViewport)
+                }
                 onZoomLevelChanged: Qt.callLater(updateViewport)
                 onWidthChanged: Qt.callLater(updateViewport)
                 onHeightChanged: Qt.callLater(updateViewport)
