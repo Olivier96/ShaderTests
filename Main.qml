@@ -160,7 +160,7 @@ ApplicationWindow {
                         map.startCentroid = map.toCoordinate(pinch.centroid.position, false)
                     }
                     onScaleChanged: (delta) => {
-                        map.zoomLevel += Math.log2(delta)
+                        map.zoomLevel = Math.max(2.5, Math.min(18, map.zoomLevel + Math.log2(delta)))
                         map.alignCoordinateToPoint(map.startCentroid, pinch.centroid.position)
                     }
                     onRotationChanged: (delta) => {
@@ -176,13 +176,26 @@ ApplicationWindow {
                                      ? PointerDevice.Mouse | PointerDevice.TouchPad
                                      : PointerDevice.Mouse
                     rotationScale: 1/120
-                    property: "zoomLevel"
+                    // Don't use property binding - manually clamp zoom
+                    onRotationChanged: {
+                        map.zoomLevel = Math.max(2.5, Math.min(18, map.zoomLevel + rotation * rotationScale))
+                    }
                 }
 
                 DragHandler {
                     id: drag
                     target: null
-                    onTranslationChanged: (delta) => map.pan(-delta.x, -delta.y)
+                    onTranslationChanged: (delta) => {
+                        map.pan(-delta.x, -delta.y)
+                        // Force clamp after pan
+                        var lon = map.center.longitude
+                        if (lon < -170 || lon > 170) {
+                            map.center = QtPositioning.coordinate(
+                                map.center.latitude,
+                                Math.max(-170, Math.min(170, lon))
+                            )
+                        }
+                    }
                 }
 
                 property geoCoordinate startCentroid
