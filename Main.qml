@@ -134,19 +134,16 @@ ApplicationWindow {
                 // Property that holds the current viewport bounds
                 property vector4d currentViewport: Qt.vector4d(85, -180, -85, 180)
 
-                // Function to clamp map so edges don't go past world bounds
+                // Function to clamp map so edges don't go past world bounds (longitude only)
                 function clampToWorldBounds() {
                     // Get coordinates at screen edges
                     var leftCoord = toCoordinate(Qt.point(0, height/2), false)
                     var rightCoord = toCoordinate(Qt.point(width, height/2), false)
-                    var topCoord = toCoordinate(Qt.point(width/2, 0), false)
-                    var bottomCoord = toCoordinate(Qt.point(width/2, height), false)
 
-                    if (!leftCoord.isValid || !rightCoord.isValid || !topCoord.isValid || !bottomCoord.isValid) return
+                    if (!leftCoord.isValid || !rightCoord.isValid) return
 
-                    // Calculate the half-width and half-height of viewport in degrees
+                    // Calculate the half-width of viewport in degrees
                     var halfWidthLon = Math.abs(rightCoord.longitude - leftCoord.longitude) / 2
-                    var halfHeightLat = Math.abs(topCoord.latitude - bottomCoord.latitude) / 2
 
                     // Handle case where we cross the antimeridian (right < left means wrapping)
                     if (rightCoord.longitude < leftCoord.longitude) {
@@ -154,7 +151,6 @@ ApplicationWindow {
                     }
 
                     var newLon = center.longitude
-                    var newLat = center.latitude
                     var needsUpdate = false
 
                     // If viewport is wider than world, center horizontally
@@ -166,7 +162,7 @@ ApplicationWindow {
                     } else {
                         // Calculate allowed center range so edges stay within bounds
                         var minLon = -180 + halfWidthLon
-                        var maxLon = 180 - halfWidthLon
+                        var maxLon = 180 - halfWidthLon - 0.1  // Small offset to fix right edge glitch
 
                         // Clamp longitude
                         if (newLon < minLon) {
@@ -178,28 +174,8 @@ ApplicationWindow {
                         }
                     }
 
-                    // If viewport is taller than world, center vertically
-                    if (halfHeightLat >= 85) {
-                        if (newLat !== 0) {
-                            newLat = 0
-                            needsUpdate = true
-                        }
-                    } else {
-                        var minLat = -85 + halfHeightLat
-                        var maxLat = 85 - halfHeightLat
-
-                        // Clamp latitude
-                        if (newLat < minLat) {
-                            newLat = minLat
-                            needsUpdate = true
-                        } else if (newLat > maxLat) {
-                            newLat = maxLat
-                            needsUpdate = true
-                        }
-                    }
-
                     if (needsUpdate) {
-                        center = QtPositioning.coordinate(newLat, newLon)
+                        center = QtPositioning.coordinate(center.latitude, newLon)
                     }
                 }
 
