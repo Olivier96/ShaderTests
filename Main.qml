@@ -232,8 +232,11 @@ ApplicationWindow {
                                      ? PointerDevice.Mouse | PointerDevice.TouchPad
                                      : PointerDevice.Mouse
                     rotationScale: 1/120
-                    property: "zoomLevel"
-                    onActiveChanged: if (!active) map.clampToWorldBounds()
+                    property: ""  // Don't auto-bind, handle manually
+                    onRotationChanged: (delta) => {
+                        map.zoomLevel = Math.max(2.5, Math.min(18, map.zoomLevel + delta))
+                        map.clampToWorldBounds()
+                    }
                 }
 
                 DragHandler {
