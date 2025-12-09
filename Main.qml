@@ -192,7 +192,7 @@ ApplicationWindow {
                 }
                 onWidthChanged: {
                     // Bump minimum zoom slightly when window grows to prevent edge glitch
-                    if (map.zoomLevel < 2.6) map.zoomLevel = 2.6
+                    if (map.zoomLevel < 2.9) map.zoomLevel = 2.9
                     Qt.callLater(updateViewport)
                     Qt.callLater(clampToWorldBounds)
                 }
