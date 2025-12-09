@@ -185,8 +185,8 @@ ApplicationWindow {
                 }
                 onZoomLevelChanged: {
                     // Force clamp zoom level
-                    if (zoomLevel < 2.5) zoomLevel = 2.5
-                    else if (zoomLevel > 18) zoomLevel = 18
+                    if (map.zoomLevel < 2.5) map.zoomLevel = 2.5
+                    else if (map.zoomLevel > 18) map.zoomLevel = 18
                     Qt.callLater(updateViewport)
                     Qt.callLater(clampToWorldBounds)
                 }
@@ -232,11 +232,8 @@ ApplicationWindow {
                                      ? PointerDevice.Mouse | PointerDevice.TouchPad
                                      : PointerDevice.Mouse
                     rotationScale: 1/120
-                    property: ""  // Don't auto-bind, handle manually
-                    onRotationChanged: (delta) => {
-                        map.zoomLevel = Math.max(2.5, Math.min(18, map.zoomLevel + delta))
-                        map.clampToWorldBounds()
-                    }
+                    property: "zoomLevel"
+                    onActiveChanged: if (!active) map.clampToWorldBounds()
                 }
 
                 DragHandler {
