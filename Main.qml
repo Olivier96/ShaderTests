@@ -136,39 +136,66 @@ ApplicationWindow {
 
                 // Function to clamp map so edges don't go past world bounds
                 function clampToWorldBounds() {
-                    // Use toCoordinate for more reliable edge detection
-                    var topLeft = toCoordinate(Qt.point(0, 0), false)
-                    var topRight = toCoordinate(Qt.point(width, 0), false)
-                    var bottomLeft = toCoordinate(Qt.point(0, height), false)
-                    var bottomRight = toCoordinate(Qt.point(width, height), false)
+                    // Get coordinates at screen edges
+                    var leftCoord = toCoordinate(Qt.point(0, height/2), false)
+                    var rightCoord = toCoordinate(Qt.point(width, height/2), false)
+                    var topCoord = toCoordinate(Qt.point(width/2, 0), false)
+                    var bottomCoord = toCoordinate(Qt.point(width/2, height), false)
 
-                    if (!topLeft.isValid || !bottomRight.isValid) return
+                    if (!leftCoord.isValid || !rightCoord.isValid || !topCoord.isValid || !bottomCoord.isValid) return
 
-                    var leftLon = topLeft.longitude
-                    var rightLon = topRight.longitude
-                    var topLat = topLeft.latitude
-                    var bottomLat = bottomLeft.latitude
+                    // Calculate the half-width and half-height of viewport in degrees
+                    var halfWidthLon = Math.abs(rightCoord.longitude - leftCoord.longitude) / 2
+                    var halfHeightLat = Math.abs(topCoord.latitude - bottomCoord.latitude) / 2
+
+                    // Handle case where we cross the antimeridian (right < left means wrapping)
+                    if (rightCoord.longitude < leftCoord.longitude) {
+                        halfWidthLon = (360 - Math.abs(rightCoord.longitude - leftCoord.longitude)) / 2
+                    }
 
                     var newLon = center.longitude
                     var newLat = center.latitude
                     var needsUpdate = false
 
-                    // Clamp longitude so edges stay within -180 to 180
-                    if (leftLon < -180) {
-                        newLon = newLon + (-180 - leftLon)
-                        needsUpdate = true
-                    } else if (rightLon > 180) {
-                        newLon = newLon - (rightLon - 180)
-                        needsUpdate = true
+                    // If viewport is wider than world, center horizontally
+                    if (halfWidthLon >= 180) {
+                        if (newLon !== 0) {
+                            newLon = 0
+                            needsUpdate = true
+                        }
+                    } else {
+                        // Calculate allowed center range so edges stay within bounds
+                        var minLon = -180 + halfWidthLon
+                        var maxLon = 180 - halfWidthLon
+
+                        // Clamp longitude
+                        if (newLon < minLon) {
+                            newLon = minLon
+                            needsUpdate = true
+                        } else if (newLon > maxLon) {
+                            newLon = maxLon
+                            needsUpdate = true
+                        }
                     }
 
-                    // Clamp latitude so edges stay within -85 to 85
-                    if (topLat > 85) {
-                        newLat = newLat - (topLat - 85)
-                        needsUpdate = true
-                    } else if (bottomLat < -85) {
-                        newLat = newLat + (-85 - bottomLat)
-                        needsUpdate = true
+                    // If viewport is taller than world, center vertically
+                    if (halfHeightLat >= 85) {
+                        if (newLat !== 0) {
+                            newLat = 0
+                            needsUpdate = true
+                        }
+                    } else {
+                        var minLat = -85 + halfHeightLat
+                        var maxLat = 85 - halfHeightLat
+
+                        // Clamp latitude
+                        if (newLat < minLat) {
+                            newLat = minLat
+                            needsUpdate = true
+                        } else if (newLat > maxLat) {
+                            newLat = maxLat
+                            needsUpdate = true
+                        }
                     }
 
                     if (needsUpdate) {
