@@ -134,16 +134,34 @@ ApplicationWindow {
                 // Property that holds the current viewport bounds
                 property vector4d currentViewport: Qt.vector4d(85, -180, -85, 180)
 
-                // Update viewport when center changes
-                onCenterChanged: Qt.callLater(updateViewport)
-                onZoomLevelChanged: Qt.callLater(updateViewport)
-                onWidthChanged: Qt.callLater(updateViewport)
-                onHeightChanged: Qt.callLater(updateViewport)
+                // Update viewport and clamp on changes
+                onCenterChanged: {
+                    Qt.callLater(updateViewport)
+                    Qt.callLater(clampToWorldBounds)
+                }
+                onZoomLevelChanged: {
+                    // Force clamp zoom level
+                    if (zoomLevel < 2.5) zoomLevel = 2.5
+                    else if (zoomLevel > 18) zoomLevel = 18
+                    Qt.callLater(updateViewport)
+                    Qt.callLater(clampToWorldBounds)
+                }
+                onWidthChanged: {
+                    Qt.callLater(updateViewport)
+                    Qt.callLater(clampToWorldBounds)
+                }
+                onHeightChanged: {
+                    Qt.callLater(updateViewport)
+                    Qt.callLater(clampToWorldBounds)
+                }
                 onBearingChanged: Qt.callLater(updateViewport)
                 onVisibleRegionChanged: Qt.callLater(updateViewport)
 
                 // Initial update after component is ready
-                Component.onCompleted: Qt.callLater(updateViewport)
+                Component.onCompleted: {
+                    Qt.callLater(updateViewport)
+                    Qt.callLater(clampToWorldBounds)
+                }
 
                 // Enable map interaction
                 PinchHandler {
