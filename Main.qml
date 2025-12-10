@@ -179,20 +179,23 @@ ApplicationWindow {
                     }
                 }
 
+                // Dynamic minimum zoom based on window width (1200px = 2.5 baseline)
+                property real dynamicMinZoom: 2.5 + Math.log2(width / 1200)
+
                 // Update viewport and clamp on changes
                 onCenterChanged: {
                     Qt.callLater(updateViewport)
                 }
                 onZoomLevelChanged: {
-                    // Force clamp zoom level
-                    if (map.zoomLevel < 2.5) map.zoomLevel = 2.5
+                    // Force clamp zoom level using dynamic minimum
+                    if (map.zoomLevel < dynamicMinZoom) map.zoomLevel = dynamicMinZoom
                     else if (map.zoomLevel > 18) map.zoomLevel = 18
                     Qt.callLater(updateViewport)
                     Qt.callLater(clampToWorldBounds)
                 }
                 onWidthChanged: {
-                    // Bump minimum zoom slightly when window grows to prevent edge glitch
-                    if (map.zoomLevel < 2.9) map.zoomLevel = 2.9
+                    // Enforce dynamic minimum zoom when window width changes
+                    if (map.zoomLevel < dynamicMinZoom) map.zoomLevel = dynamicMinZoom
                     Qt.callLater(updateViewport)
                     Qt.callLater(clampToWorldBounds)
                 }
