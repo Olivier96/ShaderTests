@@ -94,7 +94,38 @@ ApplicationWindow {
                     from: 0
                     to: 1
                     value: 0.6
-                    Layout.preferredWidth: 100
+                    Layout.preferredWidth: 80
+                }
+
+                Label {
+                    text: "Smoothing:"
+                    color: "white"
+                }
+
+                Slider {
+                    id: smoothingSlider
+                    from: 1
+                    to: 5
+                    value: 3
+                    stepSize: 1
+                    Layout.preferredWidth: 80
+                    ToolTip.visible: hovered
+                    ToolTip.text: "Sample radius: " + value.toFixed(0) + " cells"
+                }
+
+                Label {
+                    text: "IDW:"
+                    color: "white"
+                }
+
+                Slider {
+                    id: idwPowerSlider
+                    from: 0.5
+                    to: 4.0
+                    value: 2.0
+                    Layout.preferredWidth: 80
+                    ToolTip.visible: hovered
+                    ToolTip.text: "IDW power: " + value.toFixed(1)
                 }
 
                 CheckBox {
@@ -298,6 +329,9 @@ ApplicationWindow {
                     climateDataModel.minLon,
                     climateDataModel.maxLon
                 )
+
+                // IDW interpolation parameters (power, sampleRadius, unused, unused)
+                idwParams: Qt.vector4d(idwPowerSlider.value, smoothingSlider.value, 0, 0)
 
                 // Use the loaded texture
                 dataTexture: dataTextureImage

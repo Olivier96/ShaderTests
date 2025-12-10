@@ -12,6 +12,9 @@ layout(std140, binding = 0) uniform buf {
 
     // Data bounds: (minLat, maxLat, minLon, maxLon)
     vec4 dataBounds;
+
+    // IDW parameters: (power, sampleRadius, unused, unused)
+    vec4 idwParams;
 };
 
 // Climate data texture (normalized values in R channel, alpha=255 means valid data)
@@ -32,7 +35,7 @@ float mercatorYToLat(float y) {
 }
 
 // Color gradient function: maps value (0-1) to a color
-// Blue -> Cyan -> Green -> Yellow -> Red
+// Blue -> Cyan -> Green -> Yellow -> Red (professional heatmap)
 vec3 valueToColor(float value) {
     value = clamp(value, 0.0, 1.0);
 
@@ -54,6 +57,15 @@ vec3 valueToColor(float value) {
     return color;
 }
 
+// Calculate geographic distance with latitude correction
+float geoDistance(vec2 p1, vec2 p2) {
+    float dLat = p2.x - p1.x;
+    float dLon = p2.y - p1.y;
+    float avgLat = (p1.x + p2.x) * 0.5;
+    float lonScale = cos(radians(avgLat));
+    return sqrt(dLat * dLat + (dLon * lonScale) * (dLon * lonScale));
+}
+
 void main() {
     // Extract viewport bounds
     float topLeftLat = viewportBounds.x;
@@ -67,6 +79,10 @@ void main() {
     float minLon = dataBounds.z;
     float maxLon = dataBounds.w;
 
+    // IDW parameters
+    float idwPower = idwParams.x;
+    float sampleRadius = idwParams.y;  // In grid cells
+
     // Convert viewport latitudes to Mercator Y coordinates
     float topMercY = latToMercatorY(topLeftLat);
     float bottomMercY = latToMercatorY(bottomRightLat);
@@ -74,33 +90,84 @@ void main() {
     // Interpolate in Mercator space, then convert back to latitude
     float mercY = mix(topMercY, bottomMercY, qt_TexCoord0.y);
     float lat = mercatorYToLat(mercY);
-
-    // Longitude is linear
     float lon = mix(topLeftLon, bottomRightLon, qt_TexCoord0.x);
 
-    // Check if current position is within data bounds
-    if (lat < minLat || lat > maxLat || lon < minLon || lon > maxLon) {
+    // Check if current position is within data bounds (with small margin)
+    float margin = 0.5;  // Half a grid cell margin
+    if (lat < minLat - margin || lat > maxLat + margin ||
+        lon < minLon - margin || lon > maxLon + margin) {
         fragColor = vec4(0.0);
         return;
     }
 
+    // Get texture size for proper sampling
+    vec2 texSize = vec2(textureSize(dataTexture, 0));
+    vec2 texelSize = 1.0 / texSize;
+
     // Map geographic coordinates to texture coordinates
-    // Texture: Y=0 is top (maxLat), Y=1 is bottom (minLat)
-    // Texture: X=0 is left (minLon), X=1 is right (maxLon)
     float texU = (lon - minLon) / (maxLon - minLon);
     float texV = (maxLat - lat) / (maxLat - minLat);
 
-    // Sample the data texture
-    vec4 texSample = texture(dataTexture, vec2(texU, texV));
+    // Calculate grid cell size in degrees
+    float cellSizeLon = (maxLon - minLon) / texSize.x;
+    float cellSizeLat = (maxLat - minLat) / texSize.y;
 
-    // Check if this pixel has valid data (alpha > 0)
-    if (texSample.a < 0.5) {
+    // IDW interpolation: sample nearby grid cells
+    float weightSum = 0.0;
+    float valueSum = 0.0;
+    int validSamples = 0;
+
+    int radius = int(sampleRadius);
+    vec2 currentPos = vec2(lat, lon);
+
+    for (int dy = -radius; dy <= radius; dy++) {
+        for (int dx = -radius; dx <= radius; dx++) {
+            vec2 sampleUV = vec2(texU, texV) + vec2(float(dx), float(dy)) * texelSize;
+
+            // Skip if outside texture bounds
+            if (sampleUV.x < 0.0 || sampleUV.x > 1.0 || sampleUV.y < 0.0 || sampleUV.y > 1.0) {
+                continue;
+            }
+
+            vec4 texSample = texture(dataTexture, sampleUV);
+
+            // Skip if no valid data at this cell
+            if (texSample.a < 0.5) {
+                continue;
+            }
+
+            // Calculate the geographic position of this sample
+            float sampleLon = minLon + sampleUV.x * (maxLon - minLon);
+            float sampleLat = maxLat - sampleUV.y * (maxLat - minLat);
+            vec2 samplePos = vec2(sampleLat, sampleLon);
+
+            // Calculate distance
+            float dist = geoDistance(currentPos, samplePos);
+
+            // Avoid division by zero - if very close, use this value directly
+            if (dist < 0.0001) {
+                weightSum = 1.0;
+                valueSum = texSample.r;
+                validSamples = 1;
+                break;
+            }
+
+            float weight = 1.0 / pow(dist, idwPower);
+            weightSum += weight;
+            valueSum += weight * texSample.r;
+            validSamples++;
+        }
+        if (validSamples == 1 && weightSum == 1.0) break;  // Early exit if exact hit
+    }
+
+    // No valid samples found
+    if (validSamples == 0 || weightSum < 0.0001) {
         fragColor = vec4(0.0);
         return;
     }
 
-    // Get normalized value from red channel
-    float value = texSample.r;
+    // Calculate interpolated value
+    float value = valueSum / weightSum;
 
     // Convert to color
     vec3 color = valueToColor(value);
