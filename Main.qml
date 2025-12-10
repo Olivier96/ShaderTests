@@ -97,35 +97,17 @@ ApplicationWindow {
                     Layout.preferredWidth: 80
                 }
 
-                Label {
-                    text: "Smoothing:"
-                    color: "white"
-                }
-
+                // Smoothing and IDW sliders temporarily disabled - dynamic uniform updates
+                // cause shader to break on Windows/HLSL. Using hardcoded values for now.
                 Slider {
                     id: smoothingSlider
-                    from: 1
-                    to: 3
+                    visible: false
                     value: 2
-                    stepSize: 1
-                    Layout.preferredWidth: 80
-                    ToolTip.visible: hovered
-                    ToolTip.text: "Sample radius: " + value.toFixed(0) + " cells"
                 }
-
-                Label {
-                    text: "IDW:"
-                    color: "white"
-                }
-
                 Slider {
                     id: idwPowerSlider
-                    from: 0.5
-                    to: 4.0
+                    visible: false
                     value: 2.0
-                    Layout.preferredWidth: 80
-                    ToolTip.visible: hovered
-                    ToolTip.text: "IDW power: " + value.toFixed(1)
                 }
 
                 CheckBox {
@@ -330,9 +312,10 @@ ApplicationWindow {
                     climateDataModel.maxLon
                 )
 
-                // IDW interpolation parameters (individual properties for robust updates)
-                idwPower: idwPowerSlider.value
-                sampleRadius: smoothingSlider.value
+                // IDW interpolation parameters - hardcoded to avoid shader update issues
+                // TODO: Investigate why dynamic updates break the shader
+                idwPower: 2.0
+                sampleRadius: 2.0
 
                 // Texture dimensions (for GLES compatibility)
                 texWidth: climateDataModel.textureWidth
