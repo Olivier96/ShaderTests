@@ -428,19 +428,33 @@ ApplicationWindow {
             }
 
             // Hover tracking for data tooltip
+            property point lastHoverPos: Qt.point(0, 0)
+
             HoverHandler {
                 id: mapHover
                 onPointChanged: {
-                    // Hide tooltip on any mouse movement, then restart timer
-                    dataTooltip.visible = false
                     if (hovered && climateDataModel.pointCount > 0) {
-                        hoverTimer.restart()
+                        // Check if mouse moved significantly (more than 5 pixels)
+                        var dx = point.position.x - mapContainer.lastHoverPos.x
+                        var dy = point.position.y - mapContainer.lastHoverPos.y
+                        var moved = Math.sqrt(dx*dx + dy*dy) > 5
+
+                        if (moved) {
+                            // Significant movement - hide tooltip and restart timer
+                            dataTooltip.visible = false
+                            mapContainer.lastHoverPos = point.position
+                            hoverTimer.restart()
+                        }
                     }
                 }
                 onHoveredChanged: {
                     if (!hovered) {
                         hoverTimer.stop()
                         dataTooltip.visible = false
+                    } else if (climateDataModel.pointCount > 0) {
+                        // Just entered - start tracking
+                        mapContainer.lastHoverPos = point.position
+                        hoverTimer.restart()
                     }
                 }
             }
