@@ -431,6 +431,8 @@ ApplicationWindow {
             HoverHandler {
                 id: mapHover
                 onPointChanged: {
+                    // Hide tooltip on any mouse movement, then restart timer
+                    dataTooltip.visible = false
                     if (hovered && climateDataModel.pointCount > 0) {
                         hoverTimer.restart()
                     }
@@ -440,6 +442,23 @@ ApplicationWindow {
                         hoverTimer.stop()
                         dataTooltip.visible = false
                     }
+                }
+            }
+
+            // Hide tooltip on zoom or size changes
+            Connections {
+                target: map
+                function onZoomLevelChanged() {
+                    dataTooltip.visible = false
+                    hoverTimer.stop()
+                }
+                function onWidthChanged() {
+                    dataTooltip.visible = false
+                    hoverTimer.stop()
+                }
+                function onHeightChanged() {
+                    dataTooltip.visible = false
+                    hoverTimer.stop()
                 }
             }
 
