@@ -127,6 +127,7 @@ void main() {
     float weightSum = 0.0;
     float valueSum = 0.0;
     int validSamples = 0;
+    int totalSamplesInRadius = 0;  // Track expected samples for coverage calculation
 
     int radius = int(sampleRadius);
     vec2 currentPos = vec2(lat, lon);
@@ -145,6 +146,9 @@ void main() {
             if (sampleUV.x < 0.0 || sampleUV.x > 1.0 || sampleUV.y < 0.0 || sampleUV.y > 1.0) {
                 continue;
             }
+
+            // Count this as a potential sample location
+            totalSamplesInRadius++;
 
             vec4 texSample = texture(dataTexture, sampleUV);
 
@@ -166,6 +170,7 @@ void main() {
                 weightSum = 1.0;
                 valueSum = texSample.r;
                 validSamples = 1;
+                totalSamplesInRadius = 1;  // Perfect hit = 100% coverage
                 break;
             }
 
@@ -183,12 +188,18 @@ void main() {
         return;
     }
 
+    // Calculate coverage ratio for edge fade
+    float coverage = float(validSamples) / float(max(totalSamplesInRadius, 1));
+
     // Calculate interpolated value
     float value = valueSum / weightSum;
 
     // Convert to color
     vec3 color = valueToColor(value);
 
+    // Apply coverage-based fade at edges
+    float alpha = qt_Opacity * coverage;
+
     // Use premultiplied alpha for correct Qt compositing
-    fragColor = vec4(color * qt_Opacity, qt_Opacity);
+    fragColor = vec4(color * alpha, alpha);
 }
