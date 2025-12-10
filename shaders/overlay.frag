@@ -82,9 +82,15 @@ void main() {
     float minLon = dataBounds.z;
     float maxLon = dataBounds.w;
 
-    // IDW parameters
-    float idwPower = idwParams.x;
-    float sampleRadius = idwParams.y;  // In grid cells
+    // IDW parameters with safety clamps
+    float idwPower = max(0.1, idwParams.x);
+    float sampleRadius = clamp(idwParams.y, 1.0, 3.0);
+
+    // Safety check: ensure valid data bounds (prevent division by zero)
+    if (maxLat - minLat < 0.001 || maxLon - minLon < 0.001) {
+        fragColor = vec4(0.0);
+        return;
+    }
 
     // Convert viewport latitudes to Mercator Y coordinates
     float topMercY = latToMercatorY(topLeftLat);
@@ -104,7 +110,8 @@ void main() {
     }
 
     // Get texture size for proper sampling (from uniform, for GLES compatibility)
-    vec2 texSize = textureSize.xy;
+    // Ensure minimum size of 1 to prevent division by zero
+    vec2 texSize = max(textureSize.xy, vec2(1.0, 1.0));
     vec2 texelSize = 1.0 / texSize;
 
     // Map geographic coordinates to texture coordinates

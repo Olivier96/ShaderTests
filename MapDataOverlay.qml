@@ -43,11 +43,17 @@ ShaderEffect {
     onTexHeightChanged: updateTextureSize()
 
     function updateIdwParams() {
-        idwParams = Qt.vector4d(idwPower, sampleRadius, 0, 0)
+        // Ensure valid values to prevent shader issues
+        var power = Math.max(0.1, idwPower)
+        var radius = Math.max(1, Math.min(3, Math.round(sampleRadius)))
+        idwParams = Qt.vector4d(power, radius, 0, 0)
     }
 
     function updateTextureSize() {
-        textureSize = Qt.vector4d(texWidth, texHeight, 0, 0)
+        // Ensure minimum texture size of 1 to prevent division by zero
+        var w = Math.max(1, texWidth)
+        var h = Math.max(1, texHeight)
+        textureSize = Qt.vector4d(w, h, 0, 0)
     }
 
     Component.onCompleted: {
