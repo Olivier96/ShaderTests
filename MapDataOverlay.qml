@@ -28,6 +28,9 @@ ShaderEffect {
     // - sampleRadius: number of grid cells to sample in each direction
     property vector4d idwParams: Qt.vector4d(2.0, 3.0, 0, 0)
 
+    // Texture size: (width, height, unused, unused) - needed for GLES compatibility
+    property vector4d textureSize: Qt.vector4d(1, 1, 0, 0)
+
     // Data texture containing normalized climate values
     property var dataTexture: null
 

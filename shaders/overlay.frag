@@ -15,6 +15,9 @@ layout(std140, binding = 0) uniform buf {
 
     // IDW parameters: (power, sampleRadius, unused, unused)
     vec4 idwParams;
+
+    // Texture size: (width, height, unused, unused) - passed as uniform for GLES compatibility
+    vec4 textureSize;
 };
 
 // Climate data texture (normalized values in R channel, alpha=255 means valid data)
@@ -100,8 +103,8 @@ void main() {
         return;
     }
 
-    // Get texture size for proper sampling
-    vec2 texSize = vec2(textureSize(dataTexture, 0));
+    // Get texture size for proper sampling (from uniform, for GLES compatibility)
+    vec2 texSize = textureSize.xy;
     vec2 texelSize = 1.0 / texSize;
 
     // Map geographic coordinates to texture coordinates

@@ -333,6 +333,9 @@ ApplicationWindow {
                 // IDW interpolation parameters (power, sampleRadius, unused, unused)
                 idwParams: Qt.vector4d(idwPowerSlider.value, smoothingSlider.value, 0, 0)
 
+                // Texture dimensions (for GLES compatibility)
+                textureSize: Qt.vector4d(climateDataModel.textureWidth, climateDataModel.textureHeight, 0, 0)
+
                 // Use the loaded texture
                 dataTexture: dataTextureImage
             }
