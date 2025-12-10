@@ -426,6 +426,120 @@ ApplicationWindow {
                     }
                 }
             }
+
+            // Hover tracking for data tooltip
+            HoverHandler {
+                id: mapHover
+                onPointChanged: {
+                    if (hovered && climateDataModel.pointCount > 0) {
+                        hoverTimer.restart()
+                    }
+                }
+                onHoveredChanged: {
+                    if (!hovered) {
+                        hoverTimer.stop()
+                        dataTooltip.visible = false
+                    }
+                }
+            }
+
+            // Debounce timer for hover queries
+            Timer {
+                id: hoverTimer
+                interval: 150
+                onTriggered: {
+                    if (mapHover.hovered && climateDataModel.pointCount > 0) {
+                        var coord = map.toCoordinate(mapHover.point.position, false)
+                        if (coord.isValid) {
+                            dataTooltip.updateData(coord.latitude, coord.longitude, mapHover.point.position)
+                        }
+                    }
+                }
+            }
+
+            // Data tooltip
+            Rectangle {
+                id: dataTooltip
+                visible: false
+                width: tooltipContent.width + 16
+                height: tooltipContent.height + 12
+                color: Qt.rgba(0, 0, 0, 0.85)
+                radius: 6
+                border.color: "#555"
+                border.width: 1
+
+                property real hoveredLat: 0
+                property real hoveredLon: 0
+                property real hoveredValue: 0
+                property bool hasData: false
+
+                function updateData(lat, lon, screenPos) {
+                    hoveredLat = lat
+                    hoveredLon = lon
+                    hasData = climateDataModel.hasDataAt(lat, lon)
+                    if (hasData) {
+                        hoveredValue = climateDataModel.getValueAt(lat, lon)
+                    }
+
+                    // Position tooltip near cursor but keep on screen
+                    var tooltipX = screenPos.x + 15
+                    var tooltipY = screenPos.y + 15
+
+                    // Keep tooltip within bounds
+                    if (tooltipX + width > mapContainer.width) {
+                        tooltipX = screenPos.x - width - 10
+                    }
+                    if (tooltipY + height > mapContainer.height) {
+                        tooltipY = screenPos.y - height - 10
+                    }
+
+                    x = tooltipX
+                    y = tooltipY
+                    visible = true
+                }
+
+                Column {
+                    id: tooltipContent
+                    anchors.centerIn: parent
+                    spacing: 4
+
+                    Label {
+                        text: "Lat: " + dataTooltip.hoveredLat.toFixed(4) + "°"
+                        color: "white"
+                        font.pixelSize: 12
+                    }
+
+                    Label {
+                        text: "Lon: " + dataTooltip.hoveredLon.toFixed(4) + "°"
+                        color: "white"
+                        font.pixelSize: 12
+                    }
+
+                    Rectangle {
+                        width: parent.width
+                        height: 1
+                        color: "#555"
+                        visible: dataTooltip.hasData
+                    }
+
+                    Label {
+                        visible: dataTooltip.hasData
+                        text: climateDataModel.activeColumn + ": " +
+                              (isNaN(dataTooltip.hoveredValue) ? "N/A" : dataTooltip.hoveredValue.toFixed(2))
+                        color: "#4fc3f7"
+                        font.pixelSize: 12
+                        font.bold: true
+                    }
+
+                    Label {
+                        visible: !dataTooltip.hasData
+                        text: "No data"
+                        color: "#888"
+                        font.pixelSize: 11
+                        font.italic: true
+                    }
+                }
+            }
         }
     }
 }

@@ -296,6 +296,82 @@ int ClimateDataModel::lonToTextureX(double lon) const
     return static_cast<int>(std::round(normalized * (m_textureWidth - 1)));
 }
 
+double ClimateDataModel::getValueAt(double lat, double lon) const
+{
+    if (m_dataPoints.isEmpty()) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+
+    // Check if coordinate is within data bounds
+    if (lat < m_minLat || lat > m_maxLat || lon < m_minLon || lon > m_maxLon) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+
+    // Find the nearest data point using grid coordinates
+    int x = lonToTextureX(lon);
+    int y = latToTextureY(lat);
+
+    if (x < 0 || x >= m_textureWidth || y < 0 || y >= m_textureHeight) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+
+    // Check if there's valid data at this pixel
+    if (m_dataTexture.isNull()) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+
+    QColor pixel = m_dataTexture.pixelColor(x, y);
+    if (pixel.alpha() < 128) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+
+    // Find the closest data point to get the raw value
+    double targetLat = m_maxLat - (static_cast<double>(y) / (m_textureHeight - 1)) * (m_maxLat - m_minLat);
+    double targetLon = m_minLon + (static_cast<double>(x) / (m_textureWidth - 1)) * (m_maxLon - m_minLon);
+
+    double closestDist = std::numeric_limits<double>::max();
+    double closestValue = std::numeric_limits<double>::quiet_NaN();
+
+    for (const auto &point : m_dataPoints) {
+        double dLat = point.lat - targetLat;
+        double dLon = point.lon - targetLon;
+        double dist = dLat * dLat + dLon * dLon;
+
+        if (dist < closestDist) {
+            closestDist = dist;
+            if (m_activeColumn == "TAMB_Mean") {
+                closestValue = point.tambMean;
+            } else if (m_activeColumn == "TAMB_Delta") {
+                closestValue = point.tambDelta;
+            }
+        }
+    }
+
+    return closestValue;
+}
+
+bool ClimateDataModel::hasDataAt(double lat, double lon) const
+{
+    if (m_dataPoints.isEmpty() || m_dataTexture.isNull()) {
+        return false;
+    }
+
+    // Check if coordinate is within data bounds
+    if (lat < m_minLat || lat > m_maxLat || lon < m_minLon || lon > m_maxLon) {
+        return false;
+    }
+
+    int x = lonToTextureX(lon);
+    int y = latToTextureY(lat);
+
+    if (x < 0 || x >= m_textureWidth || y < 0 || y >= m_textureHeight) {
+        return false;
+    }
+
+    QColor pixel = m_dataTexture.pixelColor(x, y);
+    return pixel.alpha() >= 128;
+}
+
 // ClimateTextureProvider implementation
 ClimateTextureProvider::ClimateTextureProvider()
     : QQuickImageProvider(QQuickImageProvider::Image)

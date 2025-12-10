@@ -53,6 +53,12 @@ public:
     // Load data from the database
     Q_INVOKABLE bool loadData();
 
+    // Get raw value at a specific coordinate (returns NaN if no data)
+    Q_INVOKABLE double getValueAt(double lat, double lon) const;
+
+    // Check if there's valid data at a coordinate
+    Q_INVOKABLE bool hasDataAt(double lat, double lon) const;
+
 signals:
     void databasePathChanged();
     void activeColumnChanged();
