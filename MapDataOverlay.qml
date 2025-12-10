@@ -33,11 +33,27 @@ ShaderEffect {
     property real texWidth: 1.0
     property real texHeight: 1.0
 
-    // Internal: pack IDW params for shader
-    readonly property vector4d idwParams: Qt.vector4d(idwPower, sampleRadius, 0, 0)
+    // Shader uniforms - explicitly updated when source properties change
+    property vector4d idwParams: Qt.vector4d(2.0, 2.0, 0, 0)
+    property vector4d textureSize: Qt.vector4d(1, 1, 0, 0)
 
-    // Internal: pack texture size for shader
-    readonly property vector4d textureSize: Qt.vector4d(texWidth, texHeight, 0, 0)
+    onIdwPowerChanged: updateIdwParams()
+    onSampleRadiusChanged: updateIdwParams()
+    onTexWidthChanged: updateTextureSize()
+    onTexHeightChanged: updateTextureSize()
+
+    function updateIdwParams() {
+        idwParams = Qt.vector4d(idwPower, sampleRadius, 0, 0)
+    }
+
+    function updateTextureSize() {
+        textureSize = Qt.vector4d(texWidth, texHeight, 0, 0)
+    }
+
+    Component.onCompleted: {
+        updateIdwParams()
+        updateTextureSize()
+    }
 
     // Data texture containing normalized climate values
     property var dataTexture: null
