@@ -116,6 +116,7 @@ void main() {
     float cellSizeLat = (maxLat - minLat) / texSize.y;
 
     // IDW interpolation: sample nearby grid cells
+    // Use fixed loop bounds for HLSL compatibility (max radius = 3, so 7x7 = 49 samples)
     float weightSum = 0.0;
     float valueSum = 0.0;
     int validSamples = 0;
@@ -123,8 +124,14 @@ void main() {
     int radius = int(sampleRadius);
     vec2 currentPos = vec2(lat, lon);
 
-    for (int dy = -radius; dy <= radius; dy++) {
-        for (int dx = -radius; dx <= radius; dx++) {
+    // Fixed loop bounds for shader compiler compatibility
+    for (int dy = -3; dy <= 3; dy++) {
+        for (int dx = -3; dx <= 3; dx++) {
+            // Skip samples outside the requested radius
+            if (abs(dx) > radius || abs(dy) > radius) {
+                continue;
+            }
+
             vec2 sampleUV = vec2(texU, texV) + vec2(float(dx), float(dy)) * texelSize;
 
             // Skip if outside texture bounds

@@ -105,8 +105,8 @@ ApplicationWindow {
                 Slider {
                     id: smoothingSlider
                     from: 1
-                    to: 5
-                    value: 3
+                    to: 3
+                    value: 2
                     stepSize: 1
                     Layout.preferredWidth: 80
                     ToolTip.visible: hovered
