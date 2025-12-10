@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Dialogs
 import QtLocation
 import QtPositioning
 
@@ -9,25 +10,33 @@ ApplicationWindow {
     width: 1200
     height: 800
     visible: true
-    title: "Map Data Overlay - Shader Example"
+    title: "Map Data Overlay - Climate Data Visualization"
 
-    // Data model with 10 sample points
-    // Each point has: latitude, longitude, and a value (0.0 - 1.0)
-    // The value will be mapped to a color gradient
-    ListModel {
-        id: dataPointsModel
+    // Climate data model - loads from SQLite
+    ClimateDataModel {
+        id: climateModel
+        activeColumn: columnSelector.currentText
+        onDataChanged: {
+            console.log("Climate data updated: " + pointCount + " points, column: " + activeColumn)
+        }
+    }
 
-        // Major cities with sample data values
-        ListElement { lat: 48.8566; lon: 2.3522; value: 0.9 }    // Paris - high
-        ListElement { lat: 51.5074; lon: -0.1278; value: 0.7 }   // London
-        ListElement { lat: 40.7128; lon: -74.0060; value: 0.85 } // New York
-        ListElement { lat: 35.6762; lon: 139.6503; value: 0.6 }  // Tokyo
-        ListElement { lat: -33.8688; lon: 151.2093; value: 0.4 } // Sydney
-        ListElement { lat: 55.7558; lon: 37.6173; value: 0.3 }   // Moscow
-        ListElement { lat: -22.9068; lon: -43.1729; value: 0.75 }// Rio de Janeiro
-        ListElement { lat: 19.4326; lon: -99.1332; value: 0.5 }  // Mexico City
-        ListElement { lat: 1.3521; lon: 103.8198; value: 0.65 }  // Singapore
-        ListElement { lat: 28.6139; lon: 77.2090; value: 0.8 }   // New Delhi
+    // File dialog for selecting SQLite database
+    FileDialog {
+        id: fileDialog
+        title: "Select Climate Database"
+        nameFilters: ["SQLite databases (*.sqlite *.db)", "All files (*)"]
+        onAccepted: {
+            climateModel.databasePath = selectedFile
+        }
+    }
+
+    // Helper function to get point data (returns default if not loaded)
+    function getClimatePoint(index) {
+        if (climateModel.pointCount > index) {
+            return climateModel.getPoint(index)
+        }
+        return Qt.vector4d(0, 0, 0, 0)
     }
 
     ColumnLayout {
@@ -43,19 +52,35 @@ ApplicationWindow {
             RowLayout {
                 anchors.fill: parent
                 anchors.margins: 10
-                spacing: 20
+                spacing: 15
 
                 Label {
-                    text: "Map Data Overlay Demo"
+                    text: "Climate Data Overlay"
                     color: "white"
                     font.pixelSize: 18
                     font.bold: true
                 }
 
+                Button {
+                    text: "Load Database"
+                    onClicked: fileDialog.open()
+                }
+
+                Label {
+                    text: "Column:"
+                    color: "white"
+                }
+
+                ComboBox {
+                    id: columnSelector
+                    model: climateModel.availableColumns
+                    Layout.preferredWidth: 120
+                }
+
                 Item { Layout.fillWidth: true }
 
                 Label {
-                    text: "Overlay Opacity:"
+                    text: "Opacity:"
                     color: "white"
                 }
 
@@ -64,7 +89,7 @@ ApplicationWindow {
                     from: 0
                     to: 1
                     value: 0.6
-                    Layout.preferredWidth: 150
+                    Layout.preferredWidth: 100
                 }
 
                 Label {
@@ -77,7 +102,7 @@ ApplicationWindow {
                     from: 0.5
                     to: 4.0
                     value: 2.0
-                    Layout.preferredWidth: 150
+                    Layout.preferredWidth: 100
                 }
 
                 CheckBox {
@@ -252,50 +277,34 @@ ApplicationWindow {
 
                 property geoCoordinate startCentroid
 
-                // Visual markers for data points (for reference)
-                MapItemView {
-                    model: dataPointsModel
-                    delegate: MapQuickItem {
-                        coordinate: QtPositioning.coordinate(model.lat, model.lon)
-                        anchorPoint.x: marker.width / 2
-                        anchorPoint.y: marker.height / 2
-                        sourceItem: Rectangle {
-                            id: marker
-                            width: 12
-                            height: 12
-                            radius: 6
-                            color: Qt.hsla(0.7 - model.value * 0.7, 0.8, 0.5, 1.0)
-                            border.color: "white"
-                            border.width: 2
-                        }
-                    }
-                }
+                // Note: Visual markers removed - climate data has too many points
+                // The shader overlay provides the visualization
             }
 
             // Shader overlay - calculate viewport from actual screen corners
             MapDataOverlay {
                 id: overlay
                 anchors.fill: parent
-                visible: showOverlay.checked
+                visible: showOverlay.checked && climateModel.pointCount > 0
                 opacity: opacitySlider.value
 
                 // Bind directly to map's viewport property (updated via signals)
                 viewportBounds: map.currentViewport
 
                 // IDW params as vec4 (pointCount, idwPower, unused, unused)
-                idwParams: Qt.vector4d(dataPointsModel.count, powerSlider.value, 0, 0)
+                idwParams: Qt.vector4d(Math.min(climateModel.pointCount, 10), powerSlider.value, 0, 0)
 
                 // Pass data points as vec4 (lat, lon, value, unused)
-                point0: Qt.vector4d(dataPointsModel.get(0).lat, dataPointsModel.get(0).lon, dataPointsModel.get(0).value, 0)
-                point1: Qt.vector4d(dataPointsModel.get(1).lat, dataPointsModel.get(1).lon, dataPointsModel.get(1).value, 0)
-                point2: Qt.vector4d(dataPointsModel.get(2).lat, dataPointsModel.get(2).lon, dataPointsModel.get(2).value, 0)
-                point3: Qt.vector4d(dataPointsModel.get(3).lat, dataPointsModel.get(3).lon, dataPointsModel.get(3).value, 0)
-                point4: Qt.vector4d(dataPointsModel.get(4).lat, dataPointsModel.get(4).lon, dataPointsModel.get(4).value, 0)
-                point5: Qt.vector4d(dataPointsModel.get(5).lat, dataPointsModel.get(5).lon, dataPointsModel.get(5).value, 0)
-                point6: Qt.vector4d(dataPointsModel.get(6).lat, dataPointsModel.get(6).lon, dataPointsModel.get(6).value, 0)
-                point7: Qt.vector4d(dataPointsModel.get(7).lat, dataPointsModel.get(7).lon, dataPointsModel.get(7).value, 0)
-                point8: Qt.vector4d(dataPointsModel.get(8).lat, dataPointsModel.get(8).lon, dataPointsModel.get(8).value, 0)
-                point9: Qt.vector4d(dataPointsModel.get(9).lat, dataPointsModel.get(9).lon, dataPointsModel.get(9).value, 0)
+                point0: getClimatePoint(0)
+                point1: getClimatePoint(1)
+                point2: getClimatePoint(2)
+                point3: getClimatePoint(3)
+                point4: getClimatePoint(4)
+                point5: getClimatePoint(5)
+                point6: getClimatePoint(6)
+                point7: getClimatePoint(7)
+                point8: getClimatePoint(8)
+                point9: getClimatePoint(9)
             }
 
             // Info panel
@@ -315,19 +324,19 @@ ApplicationWindow {
                     spacing: 5
 
                     Label {
-                        text: "Viewport Info"
+                        text: "Climate Data Info"
                         color: "white"
                         font.bold: true
                     }
 
                     Label {
-                        text: "Zoom: " + map.zoomLevel.toFixed(2)
+                        text: "Points: " + climateModel.pointCount
                         color: "white"
                         font.pixelSize: 12
                     }
 
                     Label {
-                        text: "Center: " + map.center.latitude.toFixed(4) + ", " + map.center.longitude.toFixed(4)
+                        text: "Column: " + climateModel.activeColumn
                         color: "white"
                         font.pixelSize: 12
                     }
@@ -339,7 +348,7 @@ ApplicationWindow {
                     }
 
                     Label {
-                        text: "Color Scale"
+                        text: "Color Scale (" + climateModel.activeColumn + ")"
                         color: "white"
                         font.bold: true
                     }
@@ -362,11 +371,32 @@ ApplicationWindow {
 
                     Row {
                         spacing: 0
-                        Label { text: "0.0"; color: "white"; font.pixelSize: 10; width: 45 }
-                        Label { text: "0.25"; color: "white"; font.pixelSize: 10; width: 45 }
-                        Label { text: "0.5"; color: "white"; font.pixelSize: 10; width: 45 }
-                        Label { text: "0.75"; color: "white"; font.pixelSize: 10; width: 45 }
-                        Label { text: "1.0"; color: "white"; font.pixelSize: 10 }
+                        Label {
+                            text: climateModel.minValue.toFixed(1)
+                            color: "white"
+                            font.pixelSize: 10
+                            width: 45
+                        }
+                        Item { width: 90; height: 1 }
+                        Label {
+                            text: climateModel.maxValue.toFixed(1)
+                            color: "white"
+                            font.pixelSize: 10
+                            width: 45
+                            horizontalAlignment: Text.AlignRight
+                        }
+                    }
+
+                    Rectangle {
+                        width: parent.width
+                        height: 1
+                        color: "#555"
+                    }
+
+                    Label {
+                        text: "Zoom: " + map.zoomLevel.toFixed(2)
+                        color: "white"
+                        font.pixelSize: 12
                     }
                 }
             }
