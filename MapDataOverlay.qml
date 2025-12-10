@@ -3,12 +3,12 @@ import QtQuick
 /**
  * MapDataOverlay - A shader-based overlay for visualizing geo-located data
  *
- * This component renders a color gradient overlay based on data points
- * with latitude/longitude coordinates and associated values.
+ * This component renders a color gradient overlay based on climate data
+ * loaded from a texture. The texture contains normalized values that are
+ * mapped to a color gradient.
  *
- * The shader uses Inverse Distance Weighting (IDW) interpolation to
- * create smooth color transitions between data points.
- * The entire map is covered - points act as color anchors.
+ * The shader samples from the data texture and applies the color gradient
+ * to visualize the data across the map.
  */
 ShaderEffect {
     id: root
@@ -20,21 +20,11 @@ ShaderEffect {
     // (topLeftLat, topLeftLon, bottomRightLat, bottomRightLon)
     property vector4d viewportBounds: Qt.vector4d(85, -180, -85, 180)
 
-    // IDW parameters packed as vec4 for alignment
-    // (pointCount as float, idwPower, unused, unused)
-    property vector4d idwParams: Qt.vector4d(10, 2.0, 0, 0)
+    // Data bounds: (minLat, maxLat, minLon, maxLon)
+    property vector4d dataBounds: Qt.vector4d(-90, 90, -180, 180)
 
-    // Data points as vec4(lat, lon, value, unused)
-    property vector4d point0: Qt.vector4d(0, 0, 0, 0)
-    property vector4d point1: Qt.vector4d(0, 0, 0, 0)
-    property vector4d point2: Qt.vector4d(0, 0, 0, 0)
-    property vector4d point3: Qt.vector4d(0, 0, 0, 0)
-    property vector4d point4: Qt.vector4d(0, 0, 0, 0)
-    property vector4d point5: Qt.vector4d(0, 0, 0, 0)
-    property vector4d point6: Qt.vector4d(0, 0, 0, 0)
-    property vector4d point7: Qt.vector4d(0, 0, 0, 0)
-    property vector4d point8: Qt.vector4d(0, 0, 0, 0)
-    property vector4d point9: Qt.vector4d(0, 0, 0, 0)
+    // Data texture containing normalized climate values
+    property var dataTexture: null
 
     // Use precompiled shaders for Qt6
     vertexShader: "qrc:/shaders/overlay.vert.qsb"

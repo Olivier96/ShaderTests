@@ -6,6 +6,7 @@
 #include <QFile>
 #include <algorithm>
 #include <cmath>
+#include <set>
 
 ClimateDataModel::ClimateDataModel(QObject *parent)
     : QObject(parent)
@@ -36,6 +37,7 @@ void ClimateDataModel::setActiveColumn(const QString &column)
     if (m_activeColumn != column && availableColumns().contains(column)) {
         m_activeColumn = column;
         calculateMinMax();
+        generateTexture();
         emit activeColumnChanged();
         emit dataChanged();
     }
@@ -61,38 +63,24 @@ double ClimateDataModel::maxValue() const
     return m_maxValue;
 }
 
-QVector4D ClimateDataModel::getPoint(int index) const
+int ClimateDataModel::textureWidth() const
 {
-    if (index < 0 || index >= m_dataPoints.size()) {
-        return QVector4D(0, 0, 0, 0);
-    }
-
-    const ClimateDataPoint &point = m_dataPoints[index];
-    double normalizedValue = normalizeValue(getRawValue(index));
-
-    return QVector4D(
-        static_cast<float>(point.lat),
-        static_cast<float>(point.lon),
-        static_cast<float>(normalizedValue),
-        0.0f
-    );
+    return m_textureWidth;
 }
 
-double ClimateDataModel::getRawValue(int index) const
+int ClimateDataModel::textureHeight() const
 {
-    if (index < 0 || index >= m_dataPoints.size()) {
-        return 0.0;
-    }
+    return m_textureHeight;
+}
 
-    const ClimateDataPoint &point = m_dataPoints[index];
+double ClimateDataModel::gridResolution() const
+{
+    return m_gridResolution;
+}
 
-    if (m_activeColumn == "TAMB_Mean") {
-        return point.tambMean;
-    } else if (m_activeColumn == "TAMB_Delta") {
-        return point.tambDelta;
-    }
-
-    return 0.0;
+QImage ClimateDataModel::dataTexture() const
+{
+    return m_dataTexture;
 }
 
 bool ClimateDataModel::loadData()
@@ -135,7 +123,7 @@ bool ClimateDataModel::loadData()
         }
 
         while (query.next()) {
-            ClimateDataPoint point;
+            DataPoint point;
             point.lat = query.value(0).toDouble();
             point.lon = query.value(1).toDouble();
             point.tambMean = query.value(2).toDouble();
@@ -150,10 +138,78 @@ bool ClimateDataModel::loadData()
 
     qDebug() << "Loaded" << m_dataPoints.size() << "climate data points";
 
+    // Detect grid resolution from data
+    detectGridResolution();
+
+    // Calculate min/max for normalization
     calculateMinMax();
+
+    // Generate the texture
+    generateTexture();
+
     emit dataChanged();
 
     return true;
+}
+
+void ClimateDataModel::detectGridResolution()
+{
+    if (m_dataPoints.size() < 2) {
+        return;
+    }
+
+    // Find min/max lat/lon
+    m_minLat = std::numeric_limits<double>::max();
+    m_maxLat = std::numeric_limits<double>::lowest();
+    m_minLon = std::numeric_limits<double>::max();
+    m_maxLon = std::numeric_limits<double>::lowest();
+
+    // Collect unique lat/lon values to detect grid spacing
+    std::set<double> latValues;
+    std::set<double> lonValues;
+
+    for (const auto &point : m_dataPoints) {
+        m_minLat = std::min(m_minLat, point.lat);
+        m_maxLat = std::max(m_maxLat, point.lat);
+        m_minLon = std::min(m_minLon, point.lon);
+        m_maxLon = std::max(m_maxLon, point.lon);
+
+        latValues.insert(point.lat);
+        lonValues.insert(point.lon);
+    }
+
+    // Detect resolution by finding minimum difference between sorted values
+    if (latValues.size() > 1) {
+        auto it = latValues.begin();
+        double prev = *it++;
+        double minDiff = std::numeric_limits<double>::max();
+        while (it != latValues.end()) {
+            double diff = *it - prev;
+            if (diff > 0.001) {  // Ignore tiny differences due to floating point
+                minDiff = std::min(minDiff, diff);
+            }
+            prev = *it++;
+        }
+        if (minDiff < std::numeric_limits<double>::max()) {
+            m_gridResolution = minDiff;
+        }
+    }
+
+    // Calculate texture dimensions based on data bounds and resolution
+    double latRange = m_maxLat - m_minLat;
+    double lonRange = m_maxLon - m_minLon;
+
+    m_textureHeight = static_cast<int>(std::round(latRange / m_gridResolution)) + 1;
+    m_textureWidth = static_cast<int>(std::round(lonRange / m_gridResolution)) + 1;
+
+    // Limit texture size to reasonable bounds
+    m_textureWidth = std::min(m_textureWidth, 4096);
+    m_textureHeight = std::min(m_textureHeight, 2048);
+
+    qDebug() << "Grid resolution:" << m_gridResolution << "degrees";
+    qDebug() << "Lat range:" << m_minLat << "to" << m_maxLat;
+    qDebug() << "Lon range:" << m_minLon << "to" << m_maxLon;
+    qDebug() << "Texture size:" << m_textureWidth << "x" << m_textureHeight;
 }
 
 void ClimateDataModel::calculateMinMax()
@@ -182,10 +238,94 @@ void ClimateDataModel::calculateMinMax()
     qDebug() << "Column:" << m_activeColumn << "Min:" << m_minValue << "Max:" << m_maxValue;
 }
 
+void ClimateDataModel::generateTexture()
+{
+    if (m_dataPoints.isEmpty() || m_textureWidth <= 0 || m_textureHeight <= 0) {
+        m_dataTexture = QImage();
+        return;
+    }
+
+    // Create texture with RGBA format
+    // We store normalized value in all channels for easy sampling
+    m_dataTexture = QImage(m_textureWidth, m_textureHeight, QImage::Format_RGBA8888);
+    m_dataTexture.fill(Qt::transparent);  // Default to transparent (no data)
+
+    // Fill texture with data points
+    for (const auto &point : m_dataPoints) {
+        int x = lonToTextureX(point.lon);
+        int y = latToTextureY(point.lat);
+
+        if (x >= 0 && x < m_textureWidth && y >= 0 && y < m_textureHeight) {
+            double value = 0.0;
+            if (m_activeColumn == "TAMB_Mean") {
+                value = point.tambMean;
+            } else if (m_activeColumn == "TAMB_Delta") {
+                value = point.tambDelta;
+            }
+
+            double normalized = normalizeValue(value);
+            int pixelValue = static_cast<int>(normalized * 255.0);
+
+            // Store normalized value in R channel, full alpha to indicate valid data
+            m_dataTexture.setPixelColor(x, y, QColor(pixelValue, pixelValue, pixelValue, 255));
+        }
+    }
+
+    qDebug() << "Generated texture:" << m_textureWidth << "x" << m_textureHeight;
+}
+
 double ClimateDataModel::normalizeValue(double value) const
 {
     if (std::abs(m_maxValue - m_minValue) < 0.0001) {
         return 0.5;
     }
-    return (value - m_minValue) / (m_maxValue - m_minValue);
+    return std::clamp((value - m_minValue) / (m_maxValue - m_minValue), 0.0, 1.0);
+}
+
+int ClimateDataModel::latToTextureY(double lat) const
+{
+    // Latitude: top of image is max lat, bottom is min lat
+    double normalized = (m_maxLat - lat) / (m_maxLat - m_minLat);
+    return static_cast<int>(std::round(normalized * (m_textureHeight - 1)));
+}
+
+int ClimateDataModel::lonToTextureX(double lon) const
+{
+    // Longitude: left is min lon, right is max lon
+    double normalized = (lon - m_minLon) / (m_maxLon - m_minLon);
+    return static_cast<int>(std::round(normalized * (m_textureWidth - 1)));
+}
+
+// ClimateTextureProvider implementation
+ClimateTextureProvider::ClimateTextureProvider()
+    : QQuickImageProvider(QQuickImageProvider::Image)
+{
+}
+
+void ClimateTextureProvider::setModel(ClimateDataModel *model)
+{
+    m_model = model;
+}
+
+QImage ClimateTextureProvider::requestImage(const QString &id, QSize *size, const QSize &requestedSize)
+{
+    Q_UNUSED(id);
+    Q_UNUSED(requestedSize);
+
+    if (!m_model) {
+        if (size) *size = QSize(1, 1);
+        return QImage(1, 1, QImage::Format_RGBA8888);
+    }
+
+    QImage texture = m_model->dataTexture();
+    if (texture.isNull()) {
+        if (size) *size = QSize(1, 1);
+        return QImage(1, 1, QImage::Format_RGBA8888);
+    }
+
+    if (size) {
+        *size = texture.size();
+    }
+
+    return texture;
 }

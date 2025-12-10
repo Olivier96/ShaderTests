@@ -12,13 +12,26 @@ ApplicationWindow {
     visible: true
     title: "Map Data Overlay - Climate Data Visualization"
 
-    // Climate data model - loads from SQLite
-    ClimateDataModel {
-        id: climateModel
-        activeColumn: columnSelector.currentText
-        onDataChanged: {
-            console.log("Climate data updated: " + pointCount + " points, column: " + activeColumn)
+    // climateDataModel is exposed from C++ via context property
+
+    // Track texture version to force reload when data changes
+    property int textureVersion: 0
+
+    Connections {
+        target: climateDataModel
+        function onDataChanged() {
+            textureVersion++
         }
+        function onActiveColumnChanged() {
+            textureVersion++
+        }
+    }
+
+    // Bind column selector to model
+    Binding {
+        target: climateDataModel
+        property: "activeColumn"
+        value: columnSelector.currentText
     }
 
     // File dialog for selecting SQLite database
@@ -27,16 +40,8 @@ ApplicationWindow {
         title: "Select Climate Database"
         nameFilters: ["SQLite databases (*.sqlite *.db)", "All files (*)"]
         onAccepted: {
-            climateModel.databasePath = selectedFile
+            climateDataModel.databasePath = selectedFile
         }
-    }
-
-    // Helper function to get point data (returns default if not loaded)
-    function getClimatePoint(index) {
-        if (climateModel.pointCount > index) {
-            return climateModel.getPoint(index)
-        }
-        return Qt.vector4d(0, 0, 0, 0)
     }
 
     ColumnLayout {
@@ -73,7 +78,7 @@ ApplicationWindow {
 
                 ComboBox {
                     id: columnSelector
-                    model: climateModel.availableColumns
+                    model: climateDataModel.availableColumns
                     Layout.preferredWidth: 120
                 }
 
@@ -89,19 +94,6 @@ ApplicationWindow {
                     from: 0
                     to: 1
                     value: 0.6
-                    Layout.preferredWidth: 100
-                }
-
-                Label {
-                    text: "IDW Power:"
-                    color: "white"
-                }
-
-                Slider {
-                    id: powerSlider
-                    from: 0.5
-                    to: 4.0
-                    value: 2.0
                     Layout.preferredWidth: 100
                 }
 
@@ -276,35 +268,39 @@ ApplicationWindow {
                 }
 
                 property geoCoordinate startCentroid
-
-                // Note: Visual markers removed - climate data has too many points
-                // The shader overlay provides the visualization
             }
 
-            // Shader overlay - calculate viewport from actual screen corners
+            // Hidden image that loads texture from the image provider
+            Image {
+                id: dataTextureImage
+                visible: false
+                cache: false
+                // The version parameter forces reload when data changes
+                source: climateDataModel.pointCount > 0
+                    ? "image://climatedata/texture?v=" + textureVersion
+                    : ""
+            }
+
+            // Shader overlay
             MapDataOverlay {
                 id: overlay
                 anchors.fill: parent
-                visible: showOverlay.checked && climateModel.pointCount > 0
+                visible: showOverlay.checked && climateDataModel.pointCount > 0
                 opacity: opacitySlider.value
 
-                // Bind directly to map's viewport property (updated via signals)
+                // Bind directly to map's viewport property
                 viewportBounds: map.currentViewport
 
-                // IDW params as vec4 (pointCount, idwPower, unused, unused)
-                idwParams: Qt.vector4d(Math.min(climateModel.pointCount, 10), powerSlider.value, 0, 0)
+                // Data bounds from the model
+                dataBounds: Qt.vector4d(
+                    climateDataModel.minLat,
+                    climateDataModel.maxLat,
+                    climateDataModel.minLon,
+                    climateDataModel.maxLon
+                )
 
-                // Pass data points as vec4 (lat, lon, value, unused)
-                point0: getClimatePoint(0)
-                point1: getClimatePoint(1)
-                point2: getClimatePoint(2)
-                point3: getClimatePoint(3)
-                point4: getClimatePoint(4)
-                point5: getClimatePoint(5)
-                point6: getClimatePoint(6)
-                point7: getClimatePoint(7)
-                point8: getClimatePoint(8)
-                point9: getClimatePoint(9)
+                // Use the loaded texture
+                dataTexture: dataTextureImage
             }
 
             // Info panel
@@ -330,15 +326,23 @@ ApplicationWindow {
                     }
 
                     Label {
-                        text: "Points: " + climateModel.pointCount
+                        text: "Points: " + climateDataModel.pointCount
                         color: "white"
                         font.pixelSize: 12
                     }
 
                     Label {
-                        text: "Column: " + climateModel.activeColumn
+                        text: "Column: " + climateDataModel.activeColumn
                         color: "white"
                         font.pixelSize: 12
+                    }
+
+                    Label {
+                        text: "Grid: " + climateDataModel.gridResolution.toFixed(2) + "° (" +
+                              climateDataModel.textureWidth + "x" + climateDataModel.textureHeight + ")"
+                        color: "white"
+                        font.pixelSize: 12
+                        visible: climateDataModel.pointCount > 0
                     }
 
                     Rectangle {
@@ -348,7 +352,7 @@ ApplicationWindow {
                     }
 
                     Label {
-                        text: "Color Scale (" + climateModel.activeColumn + ")"
+                        text: "Color Scale (" + climateDataModel.activeColumn + ")"
                         color: "white"
                         font.bold: true
                     }
@@ -372,14 +376,14 @@ ApplicationWindow {
                     Row {
                         spacing: 0
                         Label {
-                            text: climateModel.minValue.toFixed(1)
+                            text: climateDataModel.minValue.toFixed(1)
                             color: "white"
                             font.pixelSize: 10
                             width: 45
                         }
                         Item { width: 90; height: 1 }
                         Label {
-                            text: climateModel.maxValue.toFixed(1)
+                            text: climateDataModel.maxValue.toFixed(1)
                             color: "white"
                             font.pixelSize: 10
                             width: 45
