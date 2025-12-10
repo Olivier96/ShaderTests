@@ -23,13 +23,21 @@ ShaderEffect {
     // Data bounds: (minLat, maxLat, minLon, maxLon)
     property vector4d dataBounds: Qt.vector4d(-90, 90, -180, 180)
 
-    // IDW parameters: (power, sampleRadius, unused, unused)
-    // - power: IDW exponent (higher = sharper transitions, lower = smoother)
-    // - sampleRadius: number of grid cells to sample in each direction
-    property vector4d idwParams: Qt.vector4d(2.0, 3.0, 0, 0)
+    // IDW power: higher = sharper transitions, lower = smoother
+    property real idwPower: 2.0
 
-    // Texture size: (width, height, unused, unused) - needed for GLES compatibility
-    property vector4d textureSize: Qt.vector4d(1, 1, 0, 0)
+    // Sample radius: number of grid cells to sample in each direction (1-3)
+    property real sampleRadius: 2.0
+
+    // Texture dimensions (width, height) - needed for GLES compatibility
+    property real texWidth: 1.0
+    property real texHeight: 1.0
+
+    // Internal: pack IDW params for shader
+    readonly property vector4d idwParams: Qt.vector4d(idwPower, sampleRadius, 0, 0)
+
+    // Internal: pack texture size for shader
+    readonly property vector4d textureSize: Qt.vector4d(texWidth, texHeight, 0, 0)
 
     // Data texture containing normalized climate values
     property var dataTexture: null

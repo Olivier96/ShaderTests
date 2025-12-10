@@ -330,11 +330,13 @@ ApplicationWindow {
                     climateDataModel.maxLon
                 )
 
-                // IDW interpolation parameters (power, sampleRadius, unused, unused)
-                idwParams: Qt.vector4d(idwPowerSlider.value, smoothingSlider.value, 0, 0)
+                // IDW interpolation parameters (individual properties for robust updates)
+                idwPower: idwPowerSlider.value
+                sampleRadius: smoothingSlider.value
 
                 // Texture dimensions (for GLES compatibility)
-                textureSize: Qt.vector4d(climateDataModel.textureWidth, climateDataModel.textureHeight, 0, 0)
+                texWidth: climateDataModel.textureWidth
+                texHeight: climateDataModel.textureHeight
 
                 // Use the loaded texture
                 dataTexture: dataTextureImage
