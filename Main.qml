@@ -44,6 +44,39 @@ ApplicationWindow {
         }
     }
 
+    // Reverse geocoding model for coordinate lookup
+    GeocodeModel {
+        id: reverseGeocoder
+        plugin: Plugin { name: "osm" }
+        autoUpdate: false
+        onLocationsChanged: {
+            if (count > 0) {
+                var addr = get(0).address
+                var parts = []
+                if (addr.city) parts.push(addr.city)
+                else if (addr.county) parts.push(addr.county)
+                if (addr.country) parts.push(addr.country)
+
+                if (parts.length > 0) {
+                    lookupLocationLabel.text = parts.join(", ")
+                    lookupLocationLabel.color = "#88ccff"
+                } else {
+                    lookupLocationLabel.text = "Location name not found"
+                    lookupLocationLabel.color = "#aaa"
+                }
+            } else {
+                lookupLocationLabel.text = "Location name not found"
+                lookupLocationLabel.color = "#aaa"
+            }
+        }
+        onStatusChanged: {
+            if (status === GeocodeModel.Error) {
+                lookupLocationLabel.text = "Geocoding error"
+                lookupLocationLabel.color = "#ff6666"
+            }
+        }
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
@@ -506,8 +539,23 @@ ApplicationWindow {
                         }
                     }
 
+                    // Display the location name
+                    Label {
+                        id: lookupLocationLabel
+                        width: parent.width
+                        text: ""
+                        color: "#88ccff"
+                        font.pixelSize: 11
+                        wrapMode: Text.WordWrap
+                        horizontalAlignment: Text.AlignHCenter
+                        visible: text !== ""
+                    }
+
                     // Function to update the lookup value
                     function updateLookupValue() {
+                        // Clear previous location
+                        lookupLocationLabel.text = ""
+
                         if (latInput.text === "" || lonInput.text === "") {
                             lookupValueLabel.text = "Enter coordinates above"
                             lookupValueLabel.color = "#aaa"
@@ -537,6 +585,12 @@ ApplicationWindow {
                             lookupValueLabel.text = climateDataModel.activeColumn + ": " + value.toFixed(2)
                             lookupValueLabel.color = "#4CAF50"
                         }
+
+                        // Trigger reverse geocoding to get location name
+                        lookupLocationLabel.text = "Looking up location..."
+                        lookupLocationLabel.color = "#aaa"
+                        reverseGeocoder.query = QtPositioning.coordinate(lat, lon)
+                        reverseGeocoder.update()
                     }
 
                     Rectangle {
