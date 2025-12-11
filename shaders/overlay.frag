@@ -120,7 +120,7 @@ void main() {
 
     // Empirical offset to fix north-south alignment
     // Shift sampling to move overlay northward on the map
-    float northShift = 1.0 * texelSize.y;  // Try 1 full pixel shift
+    float northShift = 0.5 * texelSize.y;  // Half pixel shift
     vec2 texUV_corrected = vec2(texU, texV + northShift);  // Add to shift overlay north
 
     // Calculate grid cell size in degrees
