@@ -93,7 +93,7 @@ ApplicationWindow {
                     id: opacitySlider
                     from: 0
                     to: 1
-                    value: 0.6
+                    value: 0.4
                     Layout.preferredWidth: 80
                 }
 
@@ -442,7 +442,7 @@ ApplicationWindow {
                             placeholderText: "e.g. 41.9"
                             validator: DoubleValidator { bottom: -90; top: 90 }
                             selectByMouse: true
-                            onTextChanged: updateLookupValue()
+                            onAccepted: infoColumn.updateLookupValue()
                             background: Rectangle {
                                 color: "#333"
                                 border.color: latInput.focus ? "#4CAF50" : "#555"
@@ -469,7 +469,7 @@ ApplicationWindow {
                             placeholderText: "e.g. 12.5"
                             validator: DoubleValidator { bottom: -180; top: 180 }
                             selectByMouse: true
-                            onTextChanged: updateLookupValue()
+                            onAccepted: infoColumn.updateLookupValue()
                             background: Rectangle {
                                 color: "#333"
                                 border.color: lonInput.focus ? "#4CAF50" : "#555"
