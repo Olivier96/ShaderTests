@@ -304,12 +304,12 @@ ApplicationWindow {
                 // Bind directly to map's viewport property
                 viewportBounds: map.currentViewport
 
-                // Data bounds from the model
+                // Data bounds from the model (using expanded bounds for correct texture alignment)
                 dataBounds: Qt.vector4d(
-                    climateDataModel.minLat,
-                    climateDataModel.maxLat,
-                    climateDataModel.minLon,
-                    climateDataModel.maxLon
+                    climateDataModel.shaderMinLat,
+                    climateDataModel.shaderMaxLat,
+                    climateDataModel.shaderMinLon,
+                    climateDataModel.shaderMaxLon
                 )
 
                 // IDW interpolation parameters - hardcoded to avoid shader update issues

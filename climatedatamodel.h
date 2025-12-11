@@ -23,6 +23,11 @@ class ClimateDataModel : public QObject
     Q_PROPERTY(double maxLat READ maxLat NOTIFY dataChanged)
     Q_PROPERTY(double minLon READ minLon NOTIFY dataChanged)
     Q_PROPERTY(double maxLon READ maxLon NOTIFY dataChanged)
+    // Expanded bounds for shader (accounts for half-grid-cell offset at edges)
+    Q_PROPERTY(double shaderMinLat READ shaderMinLat NOTIFY dataChanged)
+    Q_PROPERTY(double shaderMaxLat READ shaderMaxLat NOTIFY dataChanged)
+    Q_PROPERTY(double shaderMinLon READ shaderMinLon NOTIFY dataChanged)
+    Q_PROPERTY(double shaderMaxLon READ shaderMaxLon NOTIFY dataChanged)
 
 public:
     explicit ClimateDataModel(QObject *parent = nullptr);
@@ -46,6 +51,11 @@ public:
     double maxLat() const { return m_maxLat; }
     double minLon() const { return m_minLon; }
     double maxLon() const { return m_maxLon; }
+    // Expanded bounds for shader - extends by half grid cell to align texture edges with data centers
+    double shaderMinLat() const { return m_minLat - 0.5 * m_gridResolution; }
+    double shaderMaxLat() const { return m_maxLat + 0.5 * m_gridResolution; }
+    double shaderMinLon() const { return m_minLon - 0.5 * m_gridResolution; }
+    double shaderMaxLon() const { return m_maxLon + 0.5 * m_gridResolution; }
 
     // Get the data texture (normalized values encoded in red channel)
     QImage dataTexture() const;
