@@ -118,6 +118,12 @@ void main() {
     float texU = (lon - minLon) / (maxLon - minLon);
     float texV = (maxLat - lat) / (maxLat - minLat);
 
+    // Half-pixel offset for correct texture sampling
+    // Data was stored at pixel centers (0 to size-1), but texcoords 0-1 map to edges
+    vec2 halfPixelOffset = 0.5 * texelSize;
+    // Adjust: texU=0 should sample pixel center at 0.5/width, texU=1 should sample at (width-0.5)/width
+    vec2 texUV_corrected = vec2(texU, texV) * (texSize - 1.0) / texSize + halfPixelOffset;
+
     // Calculate grid cell size in degrees
     float cellSizeLon = (maxLon - minLon) / texSize.x;
     float cellSizeLat = (maxLat - minLat) / texSize.y;
@@ -140,26 +146,29 @@ void main() {
                 continue;
             }
 
-            vec2 sampleUV = vec2(texU, texV) + vec2(float(dx), float(dy)) * texelSize;
+            // Offset in grid space (for distance calculation)
+            vec2 gridOffset = vec2(float(dx), float(dy)) * texelSize;
+            vec2 sampleUV_geo = vec2(texU, texV) + gridOffset;  // For geographic calculations
+            vec2 sampleUV_tex = texUV_corrected + gridOffset;    // For texture sampling
 
             // Skip if outside texture bounds
-            if (sampleUV.x < 0.0 || sampleUV.x > 1.0 || sampleUV.y < 0.0 || sampleUV.y > 1.0) {
+            if (sampleUV_geo.x < 0.0 || sampleUV_geo.x > 1.0 || sampleUV_geo.y < 0.0 || sampleUV_geo.y > 1.0) {
                 continue;
             }
 
             // Count this as a potential sample location
             totalSamplesInRadius++;
 
-            vec4 texSample = texture(dataTexture, sampleUV);
+            vec4 texSample = texture(dataTexture, sampleUV_tex);
 
             // Skip if no valid data at this cell
             if (texSample.a < 0.5) {
                 continue;
             }
 
-            // Calculate the geographic position of this sample
-            float sampleLon = minLon + sampleUV.x * (maxLon - minLon);
-            float sampleLat = maxLat - sampleUV.y * (maxLat - minLat);
+            // Calculate the geographic position of this sample (use uncorrected coords for accuracy)
+            float sampleLon = minLon + sampleUV_geo.x * (maxLon - minLon);
+            float sampleLat = maxLat - sampleUV_geo.y * (maxLat - minLat);
             vec2 samplePos = vec2(sampleLat, sampleLon);
 
             // Calculate distance
