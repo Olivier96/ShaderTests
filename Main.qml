@@ -419,6 +419,123 @@ ApplicationWindow {
                         color: "#555"
                     }
 
+                    // Coordinate lookup section
+                    Label {
+                        text: "Coordinate Lookup"
+                        color: "white"
+                        font.bold: true
+                    }
+
+                    Row {
+                        spacing: 5
+                        Label {
+                            text: "Lat:"
+                            color: "white"
+                            font.pixelSize: 12
+                            width: 30
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                        TextField {
+                            id: latInput
+                            width: 90
+                            height: 28
+                            placeholderText: "e.g. 41.9"
+                            validator: DoubleValidator { bottom: -90; top: 90 }
+                            selectByMouse: true
+                            onTextChanged: updateLookupValue()
+                            background: Rectangle {
+                                color: "#333"
+                                border.color: latInput.focus ? "#4CAF50" : "#555"
+                                radius: 3
+                            }
+                            color: "white"
+                            font.pixelSize: 12
+                        }
+                    }
+
+                    Row {
+                        spacing: 5
+                        Label {
+                            text: "Lon:"
+                            color: "white"
+                            font.pixelSize: 12
+                            width: 30
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                        TextField {
+                            id: lonInput
+                            width: 90
+                            height: 28
+                            placeholderText: "e.g. 12.5"
+                            validator: DoubleValidator { bottom: -180; top: 180 }
+                            selectByMouse: true
+                            onTextChanged: updateLookupValue()
+                            background: Rectangle {
+                                color: "#333"
+                                border.color: lonInput.focus ? "#4CAF50" : "#555"
+                                radius: 3
+                            }
+                            color: "white"
+                            font.pixelSize: 12
+                        }
+                    }
+
+                    // Display the looked-up value
+                    Rectangle {
+                        width: parent.width
+                        height: 30
+                        color: "#2a2a2a"
+                        radius: 4
+                        visible: climateDataModel.pointCount > 0
+
+                        Label {
+                            id: lookupValueLabel
+                            anchors.centerIn: parent
+                            text: "Enter coordinates above"
+                            color: "#aaa"
+                            font.pixelSize: 12
+                        }
+                    }
+
+                    // Function to update the lookup value
+                    function updateLookupValue() {
+                        if (latInput.text === "" || lonInput.text === "") {
+                            lookupValueLabel.text = "Enter coordinates above"
+                            lookupValueLabel.color = "#aaa"
+                            return
+                        }
+
+                        var lat = parseFloat(latInput.text)
+                        var lon = parseFloat(lonInput.text)
+
+                        if (isNaN(lat) || isNaN(lon)) {
+                            lookupValueLabel.text = "Invalid coordinates"
+                            lookupValueLabel.color = "#ff6666"
+                            return
+                        }
+
+                        if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+                            lookupValueLabel.text = "Out of range"
+                            lookupValueLabel.color = "#ff6666"
+                            return
+                        }
+
+                        var value = climateDataModel.getValueAt(lat, lon)
+                        if (isNaN(value)) {
+                            lookupValueLabel.text = "No data at this location"
+                            lookupValueLabel.color = "#ffaa00"
+                        } else {
+                            lookupValueLabel.text = climateDataModel.activeColumn + ": " + value.toFixed(2)
+                            lookupValueLabel.color = "#4CAF50"
+                        }
+                    }
+
+                    Rectangle {
+                        width: parent.width
+                        height: 1
+                        color: "#555"
+                    }
+
                     Label {
                         text: "Zoom: " + map.zoomLevel.toFixed(2)
                         color: "white"
