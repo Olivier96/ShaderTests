@@ -118,11 +118,10 @@ void main() {
     float texU = (lon - minLon) / (maxLon - minLon);
     float texV = (maxLat - lat) / (maxLat - minLat);
 
-    // Half-pixel offset for correct texture sampling
-    // Data was stored at pixel centers (0 to size-1), but texcoords 0-1 map to edges
-    vec2 halfPixelOffset = 0.5 * texelSize;
-    // Adjust: texU=0 should sample pixel center at 0.5/width, texU=1 should sample at (width-0.5)/width
-    vec2 texUV_corrected = vec2(texU, texV) * (texSize - 1.0) / texSize + halfPixelOffset;
+    // Empirical offset to fix north-south alignment
+    // Shift sampling northward (decrease texV) to compensate for observed south shift
+    float northShift = 1.0 * texelSize.y;  // Try 1 full pixel shift north
+    vec2 texUV_corrected = vec2(texU, texV - northShift);
 
     // Calculate grid cell size in degrees
     float cellSizeLon = (maxLon - minLon) / texSize.x;
