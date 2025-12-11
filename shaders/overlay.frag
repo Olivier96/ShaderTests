@@ -119,9 +119,9 @@ void main() {
     float texV = (maxLat - lat) / (maxLat - minLat);
 
     // Empirical offset to fix north-south alignment
-    // Shift sampling northward (decrease texV) to compensate for observed south shift
-    float northShift = 1.0 * texelSize.y;  // Try 1 full pixel shift north
-    vec2 texUV_corrected = vec2(texU, texV - northShift);
+    // Shift sampling to move overlay northward on the map
+    float northShift = 1.0 * texelSize.y;  // Try 1 full pixel shift
+    vec2 texUV_corrected = vec2(texU, texV + northShift);  // Add to shift overlay north
 
     // Calculate grid cell size in degrees
     float cellSizeLon = (maxLon - minLon) / texSize.x;
