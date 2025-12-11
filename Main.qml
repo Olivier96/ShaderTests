@@ -327,6 +327,7 @@ ApplicationWindow {
 
             // Info panel
             Rectangle {
+                id: infoPanel
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
                 anchors.margins: 10
@@ -334,6 +335,14 @@ ApplicationWindow {
                 height: infoColumn.height + 20
                 color: Qt.rgba(0, 0, 0, 0.7)
                 radius: 8
+
+                // Check if a point (in mapContainer coordinates) is over this panel
+                function containsPoint(pt) {
+                    var panelX = mapContainer.width - width - 10  // right anchor with margin
+                    var panelY = mapContainer.height - height - 10  // bottom anchor with margin
+                    return pt.x >= panelX && pt.x <= panelX + width &&
+                           pt.y >= panelY && pt.y <= panelY + height
+                }
 
                 Column {
                     id: infoColumn
@@ -551,6 +560,13 @@ ApplicationWindow {
                 id: mapHover
                 onPointChanged: {
                     if (hovered && climateDataModel.pointCount > 0) {
+                        // Don't show tooltip when hovering over info panel
+                        if (infoPanel.containsPoint(point.position)) {
+                            dataTooltip.visible = false
+                            hoverTimer.stop()
+                            return
+                        }
+
                         // Check if mouse moved significantly (more than 5 pixels)
                         var dx = point.position.x - mapContainer.lastHoverPos.x
                         var dy = point.position.y - mapContainer.lastHoverPos.y
@@ -599,6 +615,10 @@ ApplicationWindow {
                 interval: 150
                 onTriggered: {
                     if (mapHover.hovered && climateDataModel.pointCount > 0) {
+                        // Don't show tooltip when over the info panel
+                        if (infoPanel.containsPoint(mapHover.point.position)) {
+                            return
+                        }
                         var coord = map.toCoordinate(mapHover.point.position, false)
                         if (coord.isValid) {
                             dataTooltip.updateData(coord.latitude, coord.longitude, mapHover.point.position)
