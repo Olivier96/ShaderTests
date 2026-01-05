@@ -313,6 +313,51 @@ ApplicationWindow {
                     }
                 }
 
+                // Tap handler for selecting a point on the map (left-click)
+                TapHandler {
+                    id: mapTap
+                    acceptedButtons: Qt.LeftButton
+                    gesturePolicy: TapHandler.ReleaseWithinBounds
+                    onTapped: function(eventPoint) {
+                        var coord = map.toCoordinate(eventPoint.position, false)
+                        if (coord.isValid) {
+                            map.selectedCoordinate = coord
+                            map.hasSelectedPoint = true
+                            // Update info panel with this location
+                            infoColumn.updateFromMapClick(coord.latitude, coord.longitude)
+                        }
+                    }
+                }
+
+                // Right-click handler to remove the selected point
+                TapHandler {
+                    acceptedButtons: Qt.RightButton
+                    gesturePolicy: TapHandler.ReleaseWithinBounds
+                    onTapped: {
+                        map.hasSelectedPoint = false
+                        map.selectedCoordinate = QtPositioning.coordinate(0, 0)
+                        // Clear the lookup display
+                        lookupValueLabel.text = "Enter coordinates above"
+                        lookupValueLabel.color = "#aaa"
+                        lookupLocationLabel.text = ""
+                        latInput.text = ""
+                        lonInput.text = ""
+                    }
+                }
+
+                // Selected point marker
+                MapCircle {
+                    id: selectedMarker
+                    visible: map.hasSelectedPoint
+                    center: map.selectedCoordinate
+                    radius: Math.max(500, 50000 / Math.pow(2, map.zoomLevel - 5))  // Scale with zoom
+                    color: Qt.rgba(1, 0.3, 0.3, 0.6)
+                    border.width: 3
+                    border.color: "#ff3333"
+                }
+
+                property bool hasSelectedPoint: false
+                property geoCoordinate selectedCoordinate: QtPositioning.coordinate(0, 0)
                 property geoCoordinate startCentroid
             }
 
@@ -577,6 +622,32 @@ ApplicationWindow {
                             return
                         }
 
+                        var value = climateDataModel.getValueAt(lat, lon)
+                        if (isNaN(value)) {
+                            lookupValueLabel.text = "No data at this location"
+                            lookupValueLabel.color = "#ffaa00"
+                        } else {
+                            lookupValueLabel.text = climateDataModel.activeColumn + ": " + value.toFixed(2)
+                            lookupValueLabel.color = "#4CAF50"
+                        }
+
+                        // Trigger reverse geocoding to get location name
+                        lookupLocationLabel.text = "Looking up location..."
+                        lookupLocationLabel.color = "#aaa"
+                        reverseGeocoder.query = QtPositioning.coordinate(lat, lon)
+                        reverseGeocoder.update()
+                    }
+
+                    // Function to update from map click
+                    function updateFromMapClick(lat, lon) {
+                        // Update input fields
+                        latInput.text = lat.toFixed(4)
+                        lonInput.text = lon.toFixed(4)
+
+                        // Clear previous location
+                        lookupLocationLabel.text = ""
+
+                        // Look up value
                         var value = climateDataModel.getValueAt(lat, lon)
                         if (isNaN(value)) {
                             lookupValueLabel.text = "No data at this location"
