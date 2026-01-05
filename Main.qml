@@ -345,15 +345,99 @@ ApplicationWindow {
                     }
                 }
 
-                // Selected point marker
-                MapCircle {
+                // Selected point marker - modern pin design
+                MapQuickItem {
                     id: selectedMarker
                     visible: map.hasSelectedPoint
-                    center: map.selectedCoordinate
-                    radius: Math.max(500, 50000 / Math.pow(2, map.zoomLevel - 5))  // Scale with zoom
-                    color: Qt.rgba(1, 0.3, 0.3, 0.6)
-                    border.width: 3
-                    border.color: "#ff3333"
+                    coordinate: map.selectedCoordinate
+                    anchorPoint.x: markerItem.width / 2
+                    anchorPoint.y: markerItem.height
+
+                    sourceItem: Item {
+                        id: markerItem
+                        width: 32
+                        height: 42
+
+                        // Drop shadow
+                        Rectangle {
+                            x: 4
+                            y: 4
+                            width: 24
+                            height: 24
+                            radius: 12
+                            color: Qt.rgba(0, 0, 0, 0.3)
+                        }
+
+                        // Pin body (teardrop shape using overlapping shapes)
+                        Rectangle {
+                            id: pinHead
+                            width: 24
+                            height: 24
+                            radius: 12
+                            color: "#e74c3c"
+                            border.width: 2
+                            border.color: "#c0392b"
+
+                            // Inner circle
+                            Rectangle {
+                                anchors.centerIn: parent
+                                width: 10
+                                height: 10
+                                radius: 5
+                                color: "white"
+                            }
+                        }
+
+                        // Pin point (triangle)
+                        Canvas {
+                            id: pinPoint
+                            x: 6
+                            y: 20
+                            width: 12
+                            height: 16
+                            onPaint: {
+                                var ctx = getContext("2d")
+                                ctx.reset()
+                                ctx.beginPath()
+                                ctx.moveTo(0, 0)
+                                ctx.lineTo(width, 0)
+                                ctx.lineTo(width / 2, height)
+                                ctx.closePath()
+                                ctx.fillStyle = "#e74c3c"
+                                ctx.fill()
+                                ctx.strokeStyle = "#c0392b"
+                                ctx.lineWidth = 2
+                                ctx.stroke()
+                            }
+                        }
+
+                        // Pulse animation ring
+                        Rectangle {
+                            id: pulseRing
+                            anchors.centerIn: pinHead
+                            width: 24
+                            height: 24
+                            radius: 12
+                            color: "transparent"
+                            border.width: 2
+                            border.color: "#e74c3c"
+                            opacity: 0
+
+                            SequentialAnimation on opacity {
+                                loops: Animation.Infinite
+                                running: map.hasSelectedPoint
+                                NumberAnimation { from: 0.8; to: 0; duration: 1500 }
+                                PauseAnimation { duration: 500 }
+                            }
+
+                            SequentialAnimation on scale {
+                                loops: Animation.Infinite
+                                running: map.hasSelectedPoint
+                                NumberAnimation { from: 1; to: 2.5; duration: 1500 }
+                                PauseAnimation { duration: 500 }
+                            }
+                        }
+                    }
                 }
 
                 property bool hasSelectedPoint: false
@@ -604,6 +688,8 @@ ApplicationWindow {
                         if (latInput.text === "" || lonInput.text === "") {
                             lookupValueLabel.text = "Enter coordinates above"
                             lookupValueLabel.color = "#aaa"
+                            // Remove marker if inputs are cleared
+                            map.hasSelectedPoint = false
                             return
                         }
 
@@ -613,14 +699,20 @@ ApplicationWindow {
                         if (isNaN(lat) || isNaN(lon)) {
                             lookupValueLabel.text = "Invalid coordinates"
                             lookupValueLabel.color = "#ff6666"
+                            map.hasSelectedPoint = false
                             return
                         }
 
                         if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
                             lookupValueLabel.text = "Out of range"
                             lookupValueLabel.color = "#ff6666"
+                            map.hasSelectedPoint = false
                             return
                         }
+
+                        // Place marker at the entered coordinates
+                        map.selectedCoordinate = QtPositioning.coordinate(lat, lon)
+                        map.hasSelectedPoint = true
 
                         var value = climateDataModel.getValueAt(lat, lon)
                         if (isNaN(value)) {
