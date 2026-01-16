@@ -90,10 +90,10 @@ bool ClimateDataModel::loadData()
         return false;
     }
 
-    // Handle file:// URLs
+    // Handle file:/// URLs (Qt FileDialog returns file:/// with 3 slashes)
     QString dbPath = m_databasePath;
-    if (dbPath.startsWith("file://")) {
-        dbPath = dbPath.mid(7);
+    if (dbPath.startsWith("file:///")) {
+        dbPath = dbPath.mid(8);
     }
 
     if (!QFile::exists(dbPath)) {
