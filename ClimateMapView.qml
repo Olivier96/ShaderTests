@@ -13,12 +13,11 @@ import QtPositioning
  * - Click-to-query coordinate lookup
  * - Hover tooltips showing data values
  * - Info panel with data statistics
+ *
+ * Note: climateDataModel is accessed directly as a context property from C++
  */
 Item {
     id: root
-
-    // Required: reference to the climate data model (exposed from C++)
-    required property var climateDataModel
 
     // Optional settings
     property bool showOverlay: true

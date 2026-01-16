@@ -102,7 +102,6 @@ ApplicationWindow {
                 id: mapView
                 SplitView.preferredWidth: parent.width * 0.6
                 SplitView.minimumWidth: 400
-                climateDataModel: climateDataModel
                 showOverlay: showOverlay.checked
                 overlayOpacity: opacitySlider.value
             }
