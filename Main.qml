@@ -102,7 +102,7 @@ ApplicationWindow {
                 id: mapView
                 SplitView.preferredWidth: parent.width * 0.6
                 SplitView.minimumWidth: 400
-                climateDataModel: window.climateDataModel
+                climateDataModel: climateDataModel
                 showOverlay: showOverlay.checked
                 overlayOpacity: opacitySlider.value
             }
@@ -400,7 +400,4 @@ ApplicationWindow {
             }
         }
     }
-
-    // Access climateDataModel via window context
-    property var climateDataModel: typeof climateDataModel !== 'undefined' ? climateDataModel : null
 }
