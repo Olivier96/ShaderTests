@@ -211,17 +211,27 @@ Item {
             }
         }
 
-        // Click handler
+        // Click handler - single tap to select point
         TapHandler {
             id: mapTap
             acceptedButtons: Qt.LeftButton
             gesturePolicy: TapHandler.ReleaseWithinBounds
-            onTapped: function(eventPoint) {
+            onSingleTapped: function(eventPoint) {
                 var coord = map.toCoordinate(eventPoint.position, false)
                 if (coord.isValid) {
                     map.selectedCoordinate = coord
                     map.hasSelectedPoint = true
                     infoColumn.updateFromMapClick(coord.latitude, coord.longitude)
+                }
+            }
+            onDoubleTapped: function(eventPoint) {
+                var coord = map.toCoordinate(eventPoint.position, false)
+                if (coord.isValid) {
+                    // Zoom in by 1 level, keeping the double-clicked point in place
+                    var newZoom = Math.min(map.zoomLevel + 1, 18)
+                    map.zoomLevel = newZoom
+                    map.alignCoordinateToPoint(coord, eventPoint.position)
+                    map.clampToWorldBounds()
                 }
             }
         }
