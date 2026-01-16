@@ -2,37 +2,15 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
-import QtLocation
-import QtPositioning
 
 ApplicationWindow {
     id: window
-    width: 1200
-    height: 800
+    width: 1400
+    height: 900
     visible: true
-    title: "Map Data Overlay - Climate Data Visualization"
+    title: "Climate Data Visualization"
 
     // climateDataModel is exposed from C++ via context property
-
-    // Track texture version to force reload when data changes
-    property int textureVersion: 0
-
-    Connections {
-        target: climateDataModel
-        function onDataChanged() {
-            textureVersion++
-        }
-        function onActiveColumnChanged() {
-            textureVersion++
-        }
-    }
-
-    // Bind column selector to model
-    Binding {
-        target: climateDataModel
-        property: "activeColumn"
-        value: columnSelector.currentText
-    }
 
     // File dialog for selecting SQLite database
     FileDialog {
@@ -44,47 +22,21 @@ ApplicationWindow {
         }
     }
 
-    // Reverse geocoding model for coordinate lookup
-    GeocodeModel {
-        id: reverseGeocoder
-        plugin: Plugin { name: "osm" }
-        autoUpdate: false
-        onLocationsChanged: {
-            if (count > 0) {
-                var addr = get(0).address
-                var parts = []
-                if (addr.city) parts.push(addr.city)
-                else if (addr.county) parts.push(addr.county)
-                if (addr.country) parts.push(addr.country)
-
-                if (parts.length > 0) {
-                    lookupLocationLabel.text = parts.join(", ")
-                    lookupLocationLabel.color = "#88ccff"
-                } else {
-                    lookupLocationLabel.text = "Location name not found"
-                    lookupLocationLabel.color = "#aaa"
-                }
-            } else {
-                lookupLocationLabel.text = "Location name not found"
-                lookupLocationLabel.color = "#aaa"
-            }
-        }
-        onStatusChanged: {
-            if (status === GeocodeModel.Error) {
-                lookupLocationLabel.text = "Geocoding error"
-                lookupLocationLabel.color = "#ff6666"
-            }
-        }
+    // Bind column selector to model
+    Binding {
+        target: climateDataModel
+        property: "activeColumn"
+        value: columnSelector.currentText
     }
 
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
 
-        // Control panel
+        // Top control bar
         Rectangle {
             Layout.fillWidth: true
-            Layout.preferredHeight: 60
+            Layout.preferredHeight: 50
             color: "#2c3e50"
 
             RowLayout {
@@ -93,7 +45,7 @@ ApplicationWindow {
                 spacing: 15
 
                 Label {
-                    text: "Climate Data Overlay"
+                    text: "Climate Data Visualization"
                     color: "white"
                     font.pixelSize: 18
                     font.bold: true
@@ -130,19 +82,6 @@ ApplicationWindow {
                     Layout.preferredWidth: 80
                 }
 
-                // Smoothing and IDW sliders temporarily disabled - dynamic uniform updates
-                // cause shader to break on Windows/HLSL. Using hardcoded values for now.
-                Slider {
-                    id: smoothingSlider
-                    visible: false
-                    value: 2
-                }
-                Slider {
-                    id: idwPowerSlider
-                    visible: false
-                    value: 2.0
-                }
-
                 CheckBox {
                     id: showOverlay
                     text: "Show Overlay"
@@ -152,781 +91,316 @@ ApplicationWindow {
             }
         }
 
-        // Map container
-        Item {
-            id: mapContainer
+        // Main content area with split view
+        SplitView {
             Layout.fillWidth: true
             Layout.fillHeight: true
+            orientation: Qt.Horizontal
 
-            Map {
-                id: map
-                anchors.fill: parent
-
-                plugin: Plugin {
-                    name: "osm"
-                    PluginParameter {
-                        name: "osm.mapping.providersrepository.disabled"
-                        value: "true"
-                    }
-                    PluginParameter {
-                        name: "osm.mapping.providersrepository.address"
-                        value: ""
-                    }
-                }
-
-                center: QtPositioning.coordinate(30, 0)
-                zoomLevel: 3
-
-                // Prevent extreme zoom out
-                minimumZoomLevel: 2.5
-                maximumZoomLevel: 18
-
-                // Helper function to calculate viewport bounds using visibleRegion
-                function updateViewport() {
-                    var rect = visibleRegion.boundingGeoRectangle()
-                    if (rect.isValid) {
-                        currentViewport = Qt.vector4d(
-                            rect.topLeft.latitude,
-                            rect.topLeft.longitude,
-                            rect.bottomRight.latitude,
-                            rect.bottomRight.longitude
-                        )
-                    }
-                }
-
-                // Property that holds the current viewport bounds
-                property vector4d currentViewport: Qt.vector4d(85, -180, -85, 180)
-
-                // Function to clamp map so edges don't go past world bounds (longitude only)
-                function clampToWorldBounds() {
-                    // Get coordinates at screen edges
-                    var leftCoord = toCoordinate(Qt.point(0, height/2), false)
-                    var rightCoord = toCoordinate(Qt.point(width, height/2), false)
-
-                    if (!leftCoord.isValid || !rightCoord.isValid) return
-
-                    // Calculate the half-width of viewport in degrees
-                    var halfWidthLon = Math.abs(rightCoord.longitude - leftCoord.longitude) / 2
-
-                    // Handle case where we cross the antimeridian (right < left means wrapping)
-                    if (rightCoord.longitude < leftCoord.longitude) {
-                        halfWidthLon = (360 - Math.abs(rightCoord.longitude - leftCoord.longitude)) / 2
-                    }
-
-                    var newLon = center.longitude
-                    var needsUpdate = false
-
-                    // If viewport is wider than world, center horizontally
-                    if (halfWidthLon >= 180) {
-                        if (newLon !== 0) {
-                            newLon = 0
-                            needsUpdate = true
-                        }
-                    } else {
-                        // Calculate allowed center range so edges stay within bounds
-                        var minLon = -180 + halfWidthLon
-                        var maxLon = 180 - halfWidthLon - 0.1  // Small offset to fix right edge glitch
-
-                        // Clamp longitude
-                        if (newLon < minLon) {
-                            newLon = minLon
-                            needsUpdate = true
-                        } else if (newLon > maxLon) {
-                            newLon = maxLon
-                            needsUpdate = true
-                        }
-                    }
-
-                    if (needsUpdate) {
-                        center = QtPositioning.coordinate(center.latitude, newLon)
-                    }
-                }
-
-                // Dynamic minimum zoom based on window width (1200px = 2.5 baseline)
-                property real dynamicMinZoom: 2.5 + Math.log2(width / 1200)
-
-                // Update viewport and clamp on changes
-                onCenterChanged: {
-                    Qt.callLater(updateViewport)
-                }
-                onZoomLevelChanged: {
-                    // Force clamp zoom level using dynamic minimum
-                    if (map.zoomLevel < dynamicMinZoom) map.zoomLevel = dynamicMinZoom
-                    else if (map.zoomLevel > 18) map.zoomLevel = 18
-                    Qt.callLater(updateViewport)
-                    Qt.callLater(clampToWorldBounds)
-                }
-                onWidthChanged: {
-                    // Enforce dynamic minimum zoom when window width changes
-                    if (map.zoomLevel < dynamicMinZoom) map.zoomLevel = dynamicMinZoom
-                    Qt.callLater(updateViewport)
-                    Qt.callLater(clampToWorldBounds)
-                }
-                onHeightChanged: {
-                    Qt.callLater(updateViewport)
-                    Qt.callLater(clampToWorldBounds)
-                }
-                onBearingChanged: Qt.callLater(updateViewport)
-                onVisibleRegionChanged: Qt.callLater(updateViewport)
-
-                // Initial update after component is ready
-                Component.onCompleted: {
-                    Qt.callLater(updateViewport)
-                    Qt.callLater(clampToWorldBounds)
-                }
-
-                // Enable map interaction
-                PinchHandler {
-                    id: pinch
-                    target: null
-                    onActiveChanged: if (active) {
-                        map.startCentroid = map.toCoordinate(pinch.centroid.position, false)
-                    }
-                    onScaleChanged: (delta) => {
-                        map.zoomLevel = Math.max(2.5, Math.min(18, map.zoomLevel + Math.log2(delta)))
-                        map.alignCoordinateToPoint(map.startCentroid, pinch.centroid.position)
-                        map.clampToWorldBounds()
-                    }
-                    onRotationChanged: (delta) => {
-                        map.bearing -= delta
-                        map.alignCoordinateToPoint(map.startCentroid, pinch.centroid.position)
-                    }
-                    grabPermissions: PointerHandler.TakeOverForbidden
-                }
-
-                WheelHandler {
-                    id: wheel
-                    acceptedDevices: Qt.platform.pluginName === "cocoa" || Qt.platform.pluginName === "wayland"
-                                     ? PointerDevice.Mouse | PointerDevice.TouchPad
-                                     : PointerDevice.Mouse
-                    rotationScale: 1/120
-                    property: "zoomLevel"
-                    onActiveChanged: if (!active) map.clampToWorldBounds()
-                }
-
-                DragHandler {
-                    id: drag
-                    target: null
-                    onTranslationChanged: (delta) => {
-                        map.pan(-delta.x, -delta.y)
-                        map.clampToWorldBounds()
-                    }
-                }
-
-                // Tap handler for selecting a point on the map (left-click)
-                TapHandler {
-                    id: mapTap
-                    acceptedButtons: Qt.LeftButton
-                    gesturePolicy: TapHandler.ReleaseWithinBounds
-                    onTapped: function(eventPoint) {
-                        var coord = map.toCoordinate(eventPoint.position, false)
-                        if (coord.isValid) {
-                            map.selectedCoordinate = coord
-                            map.hasSelectedPoint = true
-                            // Update info panel with this location
-                            infoColumn.updateFromMapClick(coord.latitude, coord.longitude)
-                        }
-                    }
-                }
-
-                // Right-click handler to remove the selected point
-                TapHandler {
-                    acceptedButtons: Qt.RightButton
-                    gesturePolicy: TapHandler.ReleaseWithinBounds
-                    onTapped: {
-                        map.hasSelectedPoint = false
-                        map.selectedCoordinate = QtPositioning.coordinate(0, 0)
-                        // Clear the lookup display
-                        lookupValueLabel.text = "Enter coordinates above"
-                        lookupValueLabel.color = "#aaa"
-                        lookupLocationLabel.text = ""
-                        latInput.text = ""
-                        lonInput.text = ""
-                    }
-                }
-
-                // Selected point marker - modern pin design
-                MapQuickItem {
-                    id: selectedMarker
-                    visible: map.hasSelectedPoint
-                    coordinate: map.selectedCoordinate
-                    anchorPoint.x: markerItem.width / 2
-                    anchorPoint.y: markerItem.height
-
-                    sourceItem: Item {
-                        id: markerItem
-                        width: 32
-                        height: 42
-
-                        // Drop shadow
-                        Rectangle {
-                            x: 4
-                            y: 4
-                            width: 24
-                            height: 24
-                            radius: 12
-                            color: Qt.rgba(0, 0, 0, 0.3)
-                        }
-
-                        // Pin body (teardrop shape using overlapping shapes)
-                        Rectangle {
-                            id: pinHead
-                            width: 24
-                            height: 24
-                            radius: 12
-                            color: "#e74c3c"
-                            border.width: 2
-                            border.color: "#c0392b"
-
-                            // Inner circle
-                            Rectangle {
-                                anchors.centerIn: parent
-                                width: 10
-                                height: 10
-                                radius: 5
-                                color: "white"
-                            }
-                        }
-
-                        // Pin point (triangle)
-                        Canvas {
-                            id: pinPoint
-                            x: 6
-                            y: 20
-                            width: 12
-                            height: 16
-                            onPaint: {
-                                var ctx = getContext("2d")
-                                ctx.reset()
-                                ctx.beginPath()
-                                ctx.moveTo(0, 0)
-                                ctx.lineTo(width, 0)
-                                ctx.lineTo(width / 2, height)
-                                ctx.closePath()
-                                ctx.fillStyle = "#e74c3c"
-                                ctx.fill()
-                                ctx.strokeStyle = "#c0392b"
-                                ctx.lineWidth = 2
-                                ctx.stroke()
-                            }
-                        }
-
-                        // Pulse animation ring
-                        Rectangle {
-                            id: pulseRing
-                            anchors.centerIn: pinHead
-                            width: 24
-                            height: 24
-                            radius: 12
-                            color: "transparent"
-                            border.width: 2
-                            border.color: "#e74c3c"
-                            opacity: 0
-
-                            SequentialAnimation on opacity {
-                                loops: Animation.Infinite
-                                running: map.hasSelectedPoint
-                                NumberAnimation { from: 0.8; to: 0; duration: 1500 }
-                                PauseAnimation { duration: 500 }
-                            }
-
-                            SequentialAnimation on scale {
-                                loops: Animation.Infinite
-                                running: map.hasSelectedPoint
-                                NumberAnimation { from: 1; to: 2.5; duration: 1500 }
-                                PauseAnimation { duration: 500 }
-                            }
-                        }
-                    }
-                }
-
-                property bool hasSelectedPoint: false
-                property geoCoordinate selectedCoordinate: QtPositioning.coordinate(0, 0)
-                property geoCoordinate startCentroid
+            // Left side: Climate Map
+            ClimateMapView {
+                id: mapView
+                SplitView.preferredWidth: parent.width * 0.6
+                SplitView.minimumWidth: 400
+                climateDataModel: window.climateDataModel
+                showOverlay: showOverlay.checked
+                overlayOpacity: opacitySlider.value
             }
 
-            // Hidden image that loads texture from the image provider
-            Image {
-                id: dataTextureImage
-                visible: false
-                cache: false
-                // The version parameter forces reload when data changes
-                source: climateDataModel.pointCount > 0
-                    ? "image://climatedata/texture?v=" + textureVersion
-                    : ""
-            }
-
-            // Shader overlay
-            MapDataOverlay {
-                id: overlay
-                anchors.fill: parent
-                visible: showOverlay.checked && climateDataModel.pointCount > 0
-                opacity: opacitySlider.value
-
-                // Bind directly to map's viewport property
-                viewportBounds: map.currentViewport
-
-                // Data bounds from the model (using expanded bounds for correct texture alignment)
-                dataBounds: Qt.vector4d(
-                    climateDataModel.shaderMinLat,
-                    climateDataModel.shaderMaxLat,
-                    climateDataModel.shaderMinLon,
-                    climateDataModel.shaderMaxLon
-                )
-
-                // IDW interpolation parameters - hardcoded to avoid shader update issues
-                // TODO: Investigate why dynamic updates break the shader
-                idwPower: 2.0
-                sampleRadius: 2.0
-
-                // Texture dimensions (for GLES compatibility)
-                texWidth: climateDataModel.textureWidth
-                texHeight: climateDataModel.textureHeight
-
-                // Use the loaded texture
-                dataTexture: dataTextureImage
-            }
-
-            // Info panel
+            // Right side: Content panel with tabs
             Rectangle {
-                id: infoPanel
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                anchors.margins: 10
-                width: 250
-                height: infoColumn.height + 20
-                color: Qt.rgba(0, 0, 0, 0.7)
-                radius: 8
+                SplitView.minimumWidth: 300
+                SplitView.preferredWidth: parent.width * 0.4
+                color: "#1a1a2e"
 
-                // Check if a point (in mapContainer coordinates) is over this panel
-                function containsPoint(pt) {
-                    var panelX = mapContainer.width - width - 10  // right anchor with margin
-                    var panelY = mapContainer.height - height - 10  // bottom anchor with margin
-                    return pt.x >= panelX && pt.x <= panelX + width &&
-                           pt.y >= panelY && pt.y <= panelY + height
-                }
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: 0
 
-                Column {
-                    id: infoColumn
-                    anchors.centerIn: parent
-                    width: parent.width - 20
-                    spacing: 5
+                    // Tab bar
+                    TabBar {
+                        id: tabBar
+                        Layout.fillWidth: true
 
-                    Label {
-                        text: "Climate Data Info"
-                        color: "white"
-                        font.bold: true
+                        TabButton {
+                            text: "Graphs"
+                            width: implicitWidth
+                        }
+                        TabButton {
+                            text: "Data"
+                            width: implicitWidth
+                        }
+                        TabButton {
+                            text: "Summary"
+                            width: implicitWidth
+                        }
                     }
 
-                    Label {
-                        text: "Points: " + climateDataModel.pointCount
-                        color: "white"
-                        font.pixelSize: 12
-                    }
+                    // Tab content
+                    StackLayout {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        currentIndex: tabBar.currentIndex
 
-                    Label {
-                        text: "Column: " + climateDataModel.activeColumn
-                        color: "white"
-                        font.pixelSize: 12
-                    }
-
-                    Label {
-                        text: "Grid: " + climateDataModel.gridResolution.toFixed(2) + "° (" +
-                              climateDataModel.textureWidth + "x" + climateDataModel.textureHeight + ")"
-                        color: "white"
-                        font.pixelSize: 12
-                        visible: climateDataModel.pointCount > 0
-                    }
-
-                    Rectangle {
-                        width: parent.width
-                        height: 1
-                        color: "#555"
-                    }
-
-                    Label {
-                        text: "Color Scale (" + climateDataModel.activeColumn + ")"
-                        color: "white"
-                        font.bold: true
-                    }
-
-                    Row {
-                        spacing: 5
+                        // Graphs tab
                         Rectangle {
-                            width: 180
-                            height: 20
-                            gradient: Gradient {
-                                orientation: Gradient.Horizontal
-                                GradientStop { position: 0.0; color: "#0000ff" }
-                                GradientStop { position: 0.25; color: "#00ffff" }
-                                GradientStop { position: 0.5; color: "#00ff00" }
-                                GradientStop { position: 0.75; color: "#ffff00" }
-                                GradientStop { position: 1.0; color: "#ff0000" }
+                            color: "#16213e"
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 20
+                                spacing: 15
+
+                                Label {
+                                    text: "Data Visualization"
+                                    color: "white"
+                                    font.pixelSize: 20
+                                    font.bold: true
+                                }
+
+                                Label {
+                                    text: "Graphs and charts will be displayed here."
+                                    color: "#aaa"
+                                    font.pixelSize: 14
+                                    wrapMode: Text.WordWrap
+                                    Layout.fillWidth: true
+                                }
+
+                                // Placeholder for histogram
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 200
+                                    color: "#0f3460"
+                                    radius: 8
+
+                                    Label {
+                                        anchors.centerIn: parent
+                                        text: "Histogram Placeholder"
+                                        color: "#555"
+                                        font.pixelSize: 16
+                                    }
+                                }
+
+                                // Placeholder for line chart
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    color: "#0f3460"
+                                    radius: 8
+
+                                    Label {
+                                        anchors.centerIn: parent
+                                        text: "Time Series Chart Placeholder"
+                                        color: "#555"
+                                        font.pixelSize: 16
+                                    }
+                                }
                             }
                         }
-                    }
 
-                    Row {
-                        spacing: 0
-                        Label {
-                            text: climateDataModel.minValue.toFixed(1)
-                            color: "white"
-                            font.pixelSize: 10
-                            width: 45
-                        }
-                        Item { width: 90; height: 1 }
-                        Label {
-                            text: climateDataModel.maxValue.toFixed(1)
-                            color: "white"
-                            font.pixelSize: 10
-                            width: 45
-                            horizontalAlignment: Text.AlignRight
-                        }
-                    }
+                        // Data tab
+                        Rectangle {
+                            color: "#16213e"
 
-                    Rectangle {
-                        width: parent.width
-                        height: 1
-                        color: "#555"
-                    }
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 20
+                                spacing: 15
 
-                    // Coordinate lookup section
-                    Label {
-                        text: "Coordinate Lookup"
-                        color: "white"
-                        font.bold: true
-                    }
+                                Label {
+                                    text: "Data Table"
+                                    color: "white"
+                                    font.pixelSize: 20
+                                    font.bold: true
+                                }
 
-                    Row {
-                        spacing: 5
-                        Label {
-                            text: "Lat:"
-                            color: "white"
-                            font.pixelSize: 12
-                            width: 30
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                        TextField {
-                            id: latInput
-                            width: 90
-                            height: 28
-                            placeholderText: "e.g. 41.9"
-                            validator: DoubleValidator { bottom: -90; top: 90 }
-                            selectByMouse: true
-                            onAccepted: infoColumn.updateLookupValue()
-                            background: Rectangle {
-                                color: "#333"
-                                border.color: latInput.focus ? "#4CAF50" : "#555"
-                                radius: 3
+                                Label {
+                                    text: "Points loaded: " + (climateDataModel ? climateDataModel.pointCount : 0)
+                                    color: "#aaa"
+                                    font.pixelSize: 14
+                                }
+
+                                // Placeholder table header
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: 40
+                                    color: "#0f3460"
+                                    radius: 4
+
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.margins: 10
+                                        spacing: 10
+
+                                        Label {
+                                            text: "Latitude"
+                                            color: "white"
+                                            font.bold: true
+                                            Layout.preferredWidth: 80
+                                        }
+                                        Label {
+                                            text: "Longitude"
+                                            color: "white"
+                                            font.bold: true
+                                            Layout.preferredWidth: 80
+                                        }
+                                        Label {
+                                            text: "Value"
+                                            color: "white"
+                                            font.bold: true
+                                            Layout.fillWidth: true
+                                        }
+                                    }
+                                }
+
+                                // Placeholder for data list
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    color: "#0f3460"
+                                    radius: 8
+
+                                    Label {
+                                        anchors.centerIn: parent
+                                        text: "Data rows will appear here"
+                                        color: "#555"
+                                        font.pixelSize: 14
+                                    }
+                                }
                             }
-                            color: "white"
-                            font.pixelSize: 12
                         }
-                    }
 
-                    Row {
-                        spacing: 5
-                        Label {
-                            text: "Lon:"
-                            color: "white"
-                            font.pixelSize: 12
-                            width: 30
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-                        TextField {
-                            id: lonInput
-                            width: 90
-                            height: 28
-                            placeholderText: "e.g. 12.5"
-                            validator: DoubleValidator { bottom: -180; top: 180 }
-                            selectByMouse: true
-                            onAccepted: infoColumn.updateLookupValue()
-                            background: Rectangle {
-                                color: "#333"
-                                border.color: lonInput.focus ? "#4CAF50" : "#555"
-                                radius: 3
+                        // Summary tab
+                        Rectangle {
+                            color: "#16213e"
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 20
+                                spacing: 15
+
+                                Label {
+                                    text: "Data Summary"
+                                    color: "white"
+                                    font.pixelSize: 20
+                                    font.bold: true
+                                }
+
+                                // Statistics grid
+                                GridLayout {
+                                    columns: 2
+                                    columnSpacing: 20
+                                    rowSpacing: 10
+                                    Layout.fillWidth: true
+
+                                    Label { text: "Data Points:"; color: "#aaa"; font.pixelSize: 14 }
+                                    Label {
+                                        text: climateDataModel ? climateDataModel.pointCount.toString() : "0"
+                                        color: "white"
+                                        font.pixelSize: 14
+                                        font.bold: true
+                                    }
+
+                                    Label { text: "Active Column:"; color: "#aaa"; font.pixelSize: 14 }
+                                    Label {
+                                        text: climateDataModel ? climateDataModel.activeColumn : "-"
+                                        color: "white"
+                                        font.pixelSize: 14
+                                        font.bold: true
+                                    }
+
+                                    Label { text: "Min Value:"; color: "#aaa"; font.pixelSize: 14 }
+                                    Label {
+                                        text: climateDataModel && climateDataModel.pointCount > 0
+                                              ? climateDataModel.minValue.toFixed(2) : "-"
+                                        color: "#4fc3f7"
+                                        font.pixelSize: 14
+                                        font.bold: true
+                                    }
+
+                                    Label { text: "Max Value:"; color: "#aaa"; font.pixelSize: 14 }
+                                    Label {
+                                        text: climateDataModel && climateDataModel.pointCount > 0
+                                              ? climateDataModel.maxValue.toFixed(2) : "-"
+                                        color: "#ff7043"
+                                        font.pixelSize: 14
+                                        font.bold: true
+                                    }
+
+                                    Label { text: "Grid Resolution:"; color: "#aaa"; font.pixelSize: 14 }
+                                    Label {
+                                        text: climateDataModel && climateDataModel.pointCount > 0
+                                              ? climateDataModel.gridResolution.toFixed(2) + "°" : "-"
+                                        color: "white"
+                                        font.pixelSize: 14
+                                        font.bold: true
+                                    }
+
+                                    Label { text: "Texture Size:"; color: "#aaa"; font.pixelSize: 14 }
+                                    Label {
+                                        text: climateDataModel && climateDataModel.pointCount > 0
+                                              ? climateDataModel.textureWidth + " x " + climateDataModel.textureHeight : "-"
+                                        color: "white"
+                                        font.pixelSize: 14
+                                        font.bold: true
+                                    }
+                                }
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    height: 1
+                                    color: "#333"
+                                }
+
+                                Label {
+                                    text: "Available Columns"
+                                    color: "white"
+                                    font.pixelSize: 16
+                                    font.bold: true
+                                }
+
+                                // List available columns
+                                Flow {
+                                    Layout.fillWidth: true
+                                    spacing: 8
+
+                                    Repeater {
+                                        model: climateDataModel ? climateDataModel.availableColumns : []
+                                        delegate: Rectangle {
+                                            width: colLabel.width + 16
+                                            height: 28
+                                            radius: 14
+                                            color: modelData === (climateDataModel ? climateDataModel.activeColumn : "")
+                                                   ? "#4CAF50" : "#0f3460"
+
+                                            Label {
+                                                id: colLabel
+                                                anchors.centerIn: parent
+                                                text: modelData
+                                                color: "white"
+                                                font.pixelSize: 12
+                                            }
+
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: {
+                                                    columnSelector.currentIndex = index
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Item { Layout.fillHeight: true }
                             }
-                            color: "white"
-                            font.pixelSize: 12
                         }
-                    }
-
-                    // Display the looked-up value
-                    Rectangle {
-                        width: parent.width
-                        height: 30
-                        color: "#2a2a2a"
-                        radius: 4
-                        visible: climateDataModel.pointCount > 0
-
-                        Label {
-                            id: lookupValueLabel
-                            anchors.centerIn: parent
-                            text: "Enter coordinates above"
-                            color: "#aaa"
-                            font.pixelSize: 12
-                        }
-                    }
-
-                    // Display the location name
-                    Label {
-                        id: lookupLocationLabel
-                        width: parent.width
-                        text: ""
-                        color: "#88ccff"
-                        font.pixelSize: 11
-                        wrapMode: Text.WordWrap
-                        horizontalAlignment: Text.AlignHCenter
-                        visible: text !== ""
-                    }
-
-                    // Function to update the lookup value
-                    function updateLookupValue() {
-                        // Clear previous location
-                        lookupLocationLabel.text = ""
-
-                        if (latInput.text === "" || lonInput.text === "") {
-                            lookupValueLabel.text = "Enter coordinates above"
-                            lookupValueLabel.color = "#aaa"
-                            // Remove marker if inputs are cleared
-                            map.hasSelectedPoint = false
-                            return
-                        }
-
-                        var lat = parseFloat(latInput.text)
-                        var lon = parseFloat(lonInput.text)
-
-                        if (isNaN(lat) || isNaN(lon)) {
-                            lookupValueLabel.text = "Invalid coordinates"
-                            lookupValueLabel.color = "#ff6666"
-                            map.hasSelectedPoint = false
-                            return
-                        }
-
-                        if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-                            lookupValueLabel.text = "Out of range"
-                            lookupValueLabel.color = "#ff6666"
-                            map.hasSelectedPoint = false
-                            return
-                        }
-
-                        // Place marker at the entered coordinates
-                        map.selectedCoordinate = QtPositioning.coordinate(lat, lon)
-                        map.hasSelectedPoint = true
-
-                        var value = climateDataModel.getValueAt(lat, lon)
-                        if (isNaN(value)) {
-                            lookupValueLabel.text = "No data at this location"
-                            lookupValueLabel.color = "#ffaa00"
-                        } else {
-                            lookupValueLabel.text = climateDataModel.activeColumn + ": " + value.toFixed(2)
-                            lookupValueLabel.color = "#4CAF50"
-                        }
-
-                        // Trigger reverse geocoding to get location name
-                        lookupLocationLabel.text = "Looking up location..."
-                        lookupLocationLabel.color = "#aaa"
-                        reverseGeocoder.query = QtPositioning.coordinate(lat, lon)
-                        reverseGeocoder.update()
-                    }
-
-                    // Function to update from map click
-                    function updateFromMapClick(lat, lon) {
-                        // Update input fields
-                        latInput.text = lat.toFixed(4)
-                        lonInput.text = lon.toFixed(4)
-
-                        // Clear previous location
-                        lookupLocationLabel.text = ""
-
-                        // Look up value
-                        var value = climateDataModel.getValueAt(lat, lon)
-                        if (isNaN(value)) {
-                            lookupValueLabel.text = "No data at this location"
-                            lookupValueLabel.color = "#ffaa00"
-                        } else {
-                            lookupValueLabel.text = climateDataModel.activeColumn + ": " + value.toFixed(2)
-                            lookupValueLabel.color = "#4CAF50"
-                        }
-
-                        // Trigger reverse geocoding to get location name
-                        lookupLocationLabel.text = "Looking up location..."
-                        lookupLocationLabel.color = "#aaa"
-                        reverseGeocoder.query = QtPositioning.coordinate(lat, lon)
-                        reverseGeocoder.update()
-                    }
-
-                    Rectangle {
-                        width: parent.width
-                        height: 1
-                        color: "#555"
-                    }
-
-                    Label {
-                        text: "Zoom: " + map.zoomLevel.toFixed(2)
-                        color: "white"
-                        font.pixelSize: 12
-                    }
-                }
-            }
-
-            // Hover tracking for data tooltip
-            property point lastHoverPos: Qt.point(0, 0)
-
-            HoverHandler {
-                id: mapHover
-                onPointChanged: {
-                    if (hovered && climateDataModel.pointCount > 0) {
-                        // Don't show tooltip when hovering over info panel
-                        if (infoPanel.containsPoint(point.position)) {
-                            dataTooltip.visible = false
-                            hoverTimer.stop()
-                            return
-                        }
-
-                        // Check if mouse moved significantly (more than 5 pixels)
-                        var dx = point.position.x - mapContainer.lastHoverPos.x
-                        var dy = point.position.y - mapContainer.lastHoverPos.y
-                        var moved = Math.sqrt(dx*dx + dy*dy) > 5
-
-                        if (moved) {
-                            // Significant movement - hide tooltip and restart timer
-                            dataTooltip.visible = false
-                            mapContainer.lastHoverPos = point.position
-                            hoverTimer.restart()
-                        }
-                    }
-                }
-                onHoveredChanged: {
-                    if (!hovered) {
-                        hoverTimer.stop()
-                        dataTooltip.visible = false
-                    } else if (climateDataModel.pointCount > 0) {
-                        // Just entered - start tracking
-                        mapContainer.lastHoverPos = point.position
-                        hoverTimer.restart()
-                    }
-                }
-            }
-
-            // Hide tooltip on zoom or size changes
-            Connections {
-                target: map
-                function onZoomLevelChanged() {
-                    dataTooltip.visible = false
-                    hoverTimer.stop()
-                }
-                function onWidthChanged() {
-                    dataTooltip.visible = false
-                    hoverTimer.stop()
-                }
-                function onHeightChanged() {
-                    dataTooltip.visible = false
-                    hoverTimer.stop()
-                }
-            }
-
-            // Debounce timer for hover queries
-            Timer {
-                id: hoverTimer
-                interval: 150
-                onTriggered: {
-                    if (mapHover.hovered && climateDataModel.pointCount > 0) {
-                        // Don't show tooltip when over the info panel
-                        if (infoPanel.containsPoint(mapHover.point.position)) {
-                            return
-                        }
-                        var coord = map.toCoordinate(mapHover.point.position, false)
-                        if (coord.isValid) {
-                            dataTooltip.updateData(coord.latitude, coord.longitude, mapHover.point.position)
-                        }
-                    }
-                }
-            }
-
-            // Data tooltip
-            Rectangle {
-                id: dataTooltip
-                visible: false
-                width: tooltipContent.width + 16
-                height: tooltipContent.height + 12
-                color: Qt.rgba(0, 0, 0, 0.85)
-                radius: 6
-                border.color: "#555"
-                border.width: 1
-
-                property real hoveredLat: 0
-                property real hoveredLon: 0
-                property real hoveredValue: 0
-                property bool hasData: false
-
-                function updateData(lat, lon, screenPos) {
-                    hoveredLat = lat
-                    hoveredLon = lon
-                    hasData = climateDataModel.hasDataAt(lat, lon)
-                    if (hasData) {
-                        hoveredValue = climateDataModel.getValueAt(lat, lon)
-                    }
-
-                    // Position tooltip near cursor but keep on screen
-                    var tooltipX = screenPos.x + 15
-                    var tooltipY = screenPos.y + 15
-
-                    // Keep tooltip within bounds
-                    if (tooltipX + width > mapContainer.width) {
-                        tooltipX = screenPos.x - width - 10
-                    }
-                    if (tooltipY + height > mapContainer.height) {
-                        tooltipY = screenPos.y - height - 10
-                    }
-
-                    x = tooltipX
-                    y = tooltipY
-                    visible = true
-                }
-
-                Column {
-                    id: tooltipContent
-                    anchors.centerIn: parent
-                    spacing: 4
-
-                    Label {
-                        text: "Lat: " + dataTooltip.hoveredLat.toFixed(4) + "°"
-                        color: "white"
-                        font.pixelSize: 12
-                    }
-
-                    Label {
-                        text: "Lon: " + dataTooltip.hoveredLon.toFixed(4) + "°"
-                        color: "white"
-                        font.pixelSize: 12
-                    }
-
-                    Rectangle {
-                        width: parent.width
-                        height: 1
-                        color: "#555"
-                        visible: dataTooltip.hasData
-                    }
-
-                    Label {
-                        visible: dataTooltip.hasData
-                        text: climateDataModel.activeColumn + ": " +
-                              (isNaN(dataTooltip.hoveredValue) ? "N/A" : dataTooltip.hoveredValue.toFixed(2))
-                        color: "#4fc3f7"
-                        font.pixelSize: 12
-                        font.bold: true
-                    }
-
-                    Label {
-                        visible: !dataTooltip.hasData
-                        text: "No data"
-                        color: "#888"
-                        font.pixelSize: 11
-                        font.italic: true
                     }
                 }
             }
         }
     }
+
+    // Access climateDataModel via window context
+    property var climateDataModel: typeof climateDataModel !== 'undefined' ? climateDataModel : null
 }

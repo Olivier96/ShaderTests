@@ -20,6 +20,7 @@ qt_add_qml_module(appMapDataOverlay
     VERSION 1.0
     QML_FILES
         Main.qml
+        ClimateMapView.qml
         MapDataOverlay.qml
 )
 
