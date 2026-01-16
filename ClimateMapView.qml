@@ -13,15 +13,19 @@ import QtPositioning
  * - Click-to-query coordinate lookup
  * - Hover tooltips showing data values
  * - Info panel with data statistics
+ * - Dropdown control bar for map settings
  *
  * Note: climateDataModel is accessed directly as a context property from C++
  */
 Item {
     id: root
 
-    // Optional settings
-    property bool showOverlay: true
-    property real overlayOpacity: 0.4
+    // Control bar state
+    property bool controlBarExpanded: false
+
+    // Map overlay settings (directly controlled by internal UI now)
+    property bool showOverlay: showOverlayCheck.checked
+    property real overlayOpacity: opacitySlider.value
     property string activeColumn: climateDataModel ? climateDataModel.activeColumn : ""
 
     // Track texture version to force reload when data changes
@@ -29,6 +33,14 @@ Item {
 
     // Expose map for external control
     readonly property alias map: map
+
+    // Bind column selector to model
+    Binding {
+        target: climateDataModel
+        property: "activeColumn"
+        value: columnSelector.currentText
+        when: climateDataModel && columnSelector.currentText !== ""
+    }
 
     Connections {
         target: climateDataModel
@@ -802,6 +814,134 @@ Item {
                 color: "#888"
                 font.pixelSize: 11
                 font.italic: true
+            }
+        }
+    }
+
+    // Dropdown control bar toggle button (top right)
+    Rectangle {
+        id: controlBarToggle
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.margins: 10
+        width: 32
+        height: 32
+        radius: 4
+        color: toggleBtnMouseArea.containsMouse ? "#3c3c5c" : Qt.rgba(0, 0, 0, 0.6)
+        z: 100
+
+        Label {
+            anchors.centerIn: parent
+            text: controlBarExpanded ? "\u25B2" : "\u25BC"  // ▲ or ▼
+            color: "white"
+            font.pixelSize: 14
+        }
+
+        MouseArea {
+            id: toggleBtnMouseArea
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: controlBarExpanded = !controlBarExpanded
+        }
+
+        ToolTip {
+            visible: toggleBtnMouseArea.containsMouse
+            text: controlBarExpanded ? "Hide controls" : "Show controls"
+            delay: 500
+        }
+    }
+
+    // Dropdown control bar
+    Rectangle {
+        id: controlBar
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: controlBarToggle.left
+        anchors.rightMargin: 5
+        height: controlBarExpanded ? 50 : 0
+        color: Qt.rgba(0, 0, 0, 0.75)
+        radius: 4
+        anchors.margins: 10
+        clip: true
+        z: 99
+
+        Behavior on height {
+            NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
+        }
+
+        RowLayout {
+            anchors.fill: parent
+            anchors.margins: 10
+            spacing: 15
+            opacity: controlBarExpanded ? 1 : 0
+
+            Behavior on opacity {
+                NumberAnimation { duration: 150 }
+            }
+
+            Label {
+                text: "Column:"
+                color: "white"
+                font.pixelSize: 13
+            }
+
+            ComboBox {
+                id: columnSelector
+                model: climateDataModel ? climateDataModel.availableColumns : []
+                Layout.preferredWidth: 120
+
+                background: Rectangle {
+                    color: "#2a2a4e"
+                    border.color: "#444"
+                    radius: 4
+                }
+
+                contentItem: Label {
+                    text: columnSelector.displayText
+                    color: "white"
+                    verticalAlignment: Text.AlignVCenter
+                    leftPadding: 8
+                }
+            }
+
+            Item { width: 10 }
+
+            Label {
+                text: "Opacity:"
+                color: "white"
+                font.pixelSize: 13
+            }
+
+            Slider {
+                id: opacitySlider
+                from: 0
+                to: 1
+                value: 0.4
+                Layout.preferredWidth: 100
+            }
+
+            Label {
+                text: Math.round(opacitySlider.value * 100) + "%"
+                color: "#aaa"
+                font.pixelSize: 12
+                Layout.preferredWidth: 35
+            }
+
+            Item { Layout.fillWidth: true }
+
+            CheckBox {
+                id: showOverlayCheck
+                text: "Show Overlay"
+                checked: true
+
+                contentItem: Label {
+                    text: showOverlayCheck.text
+                    color: "white"
+                    font.pixelSize: 13
+                    leftPadding: showOverlayCheck.indicator.width + 6
+                    verticalAlignment: Text.AlignVCenter
+                }
             }
         }
     }

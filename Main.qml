@@ -27,13 +27,6 @@ ApplicationWindow {
         }
     }
 
-    // Bind column selector to model
-    Binding {
-        target: climateDataModel
-        property: "activeColumn"
-        value: columnSelector.currentText
-    }
-
     RowLayout {
         anchors.fill: parent
         spacing: 0
@@ -216,74 +209,10 @@ ApplicationWindow {
             }
         }
 
-        // Main content area
-        ColumnLayout {
+        // Main content area with split view
+        SplitView {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            spacing: 0
-
-            // Top control bar
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 50
-                color: "#2c3e50"
-
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.margins: 10
-                    spacing: 15
-
-                    Label {
-                        text: "Climate Data Visualization"
-                        color: "white"
-                        font.pixelSize: 18
-                        font.bold: true
-                    }
-
-                    Button {
-                        text: "Load Database"
-                        onClicked: fileDialog.open()
-                    }
-
-                    Label {
-                        text: "Column:"
-                        color: "white"
-                    }
-
-                    ComboBox {
-                        id: columnSelector
-                        model: climateDataModel.availableColumns
-                        Layout.preferredWidth: 120
-                    }
-
-                    Item { Layout.fillWidth: true }
-
-                    Label {
-                        text: "Opacity:"
-                        color: "white"
-                    }
-
-                    Slider {
-                        id: opacitySlider
-                        from: 0
-                        to: 1
-                        value: 0.4
-                        Layout.preferredWidth: 80
-                    }
-
-                    CheckBox {
-                        id: showOverlay
-                        text: "Show Overlay"
-                        checked: true
-                        palette.windowText: "white"
-                    }
-                }
-            }
-
-            // Main content area with split view
-            SplitView {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
                 orientation: Qt.Horizontal
 
                 // Left side: Climate Map
@@ -291,8 +220,6 @@ ApplicationWindow {
                     id: mapView
                     SplitView.preferredWidth: parent.width * 0.6
                     SplitView.minimumWidth: 400
-                    showOverlay: showOverlay.checked
-                    overlayOpacity: opacitySlider.value
                 }
 
                 // Right side: Content panel with tabs
