@@ -226,12 +226,12 @@ Item {
             }
             onDoubleTapped: function(eventPoint) {
                 var coord = map.toCoordinate(eventPoint.position, false)
-                if (coord.isValid) {
-                    // Zoom in by 1 level, keeping the double-clicked point in place
-                    var newZoom = Math.min(map.zoomLevel + 1, 18)
-                    map.zoomLevel = newZoom
-                    map.alignCoordinateToPoint(coord, eventPoint.position)
-                    map.clampToWorldBounds()
+                if (coord.isValid && !zoomAnimation.running) {
+                    // Smooth zoom in by 1 level, keeping the double-clicked point in place
+                    map.zoomTargetCoord = coord
+                    map.zoomTargetPoint = eventPoint.position
+                    map.zoomTargetLevel = Math.min(map.zoomLevel + 1, 18)
+                    zoomAnimation.start()
                 }
             }
         }
@@ -331,6 +331,41 @@ Item {
         property bool hasSelectedPoint: false
         property geoCoordinate selectedCoordinate: QtPositioning.coordinate(0, 0)
         property geoCoordinate startCentroid
+
+        // Double-tap zoom animation properties
+        property geoCoordinate zoomTargetCoord
+        property point zoomTargetPoint
+        property real zoomTargetLevel
+
+        NumberAnimation {
+            id: zoomAnimation
+            target: map
+            property: "zoomLevel"
+            to: map.zoomTargetLevel
+            duration: 250
+            easing.type: Easing.OutQuad
+            onRunningChanged: {
+                if (running) {
+                    // Continuously align during animation
+                    map.alignCoordinateToPoint(map.zoomTargetCoord, map.zoomTargetPoint)
+                } else {
+                    // Final alignment and bounds check when done
+                    map.alignCoordinateToPoint(map.zoomTargetCoord, map.zoomTargetPoint)
+                    map.clampToWorldBounds()
+                }
+            }
+        }
+
+        // Timer to keep aligning during zoom animation
+        Timer {
+            id: alignTimer
+            interval: 16  // ~60fps
+            repeat: true
+            running: zoomAnimation.running
+            onTriggered: {
+                map.alignCoordinateToPoint(map.zoomTargetCoord, map.zoomTargetPoint)
+            }
+        }
     }
 
     // Hidden image that loads texture from the image provider
