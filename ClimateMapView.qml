@@ -823,18 +823,25 @@ Item {
         id: controlBarToggle
         anchors.top: parent.top
         anchors.right: parent.right
-        anchors.margins: 10
-        width: 32
-        height: 32
-        radius: 4
-        color: toggleBtnMouseArea.containsMouse ? "#3c3c5c" : Qt.rgba(0, 0, 0, 0.6)
+        anchors.margins: 12
+        width: 36
+        height: 36
+        radius: 18
+        color: toggleBtnMouseArea.containsMouse ? Qt.rgba(255, 255, 255, 0.2) : Qt.rgba(0, 0, 0, 0.5)
+        border.color: Qt.rgba(255, 255, 255, 0.1)
+        border.width: 1
         z: 100
+
+        Behavior on color {
+            ColorAnimation { duration: 150 }
+        }
 
         Label {
             anchors.centerIn: parent
-            text: controlBarExpanded ? "\u25B2" : "\u25BC"  // ▲ or ▼
+            text: controlBarExpanded ? "\u25B2" : "\u25BC"
             color: "white"
-            font.pixelSize: 14
+            font.pixelSize: 12
+            opacity: 0.9
         }
 
         MouseArea {
@@ -852,95 +859,223 @@ Item {
         }
     }
 
-    // Dropdown control bar
+    // Dropdown control bar - modern glassmorphism style
     Rectangle {
         id: controlBar
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: controlBarToggle.left
-        anchors.rightMargin: 5
-        height: controlBarExpanded ? 50 : 0
-        color: Qt.rgba(0, 0, 0, 0.75)
-        radius: 4
-        anchors.margins: 10
+        anchors.rightMargin: 8
+        anchors.topMargin: 12
+        anchors.leftMargin: 12
+        height: controlBarExpanded ? 56 : 0
+        radius: 12
+        color: Qt.rgba(20, 20, 35, 0.85)
+        border.color: Qt.rgba(255, 255, 255, 0.1)
+        border.width: 1
         clip: true
         z: 99
 
         Behavior on height {
-            NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
+            NumberAnimation { duration: 250; easing.type: Easing.OutCubic }
         }
 
         RowLayout {
             anchors.fill: parent
-            anchors.margins: 10
-            spacing: 15
+            anchors.leftMargin: 16
+            anchors.rightMargin: 16
+            anchors.topMargin: 8
+            anchors.bottomMargin: 8
+            spacing: 20
             opacity: controlBarExpanded ? 1 : 0
 
             Behavior on opacity {
-                NumberAnimation { duration: 150 }
+                NumberAnimation { duration: 200 }
             }
 
-            Label {
-                text: "Column:"
-                color: "white"
-                font.pixelSize: 13
+            // Column selector section
+            Row {
+                spacing: 8
+                Layout.alignment: Qt.AlignVCenter
+
+                Label {
+                    text: "Column"
+                    color: Qt.rgba(255, 255, 255, 0.6)
+                    font.pixelSize: 11
+                    font.weight: Font.Medium
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+
+                ComboBox {
+                    id: columnSelector
+                    model: climateDataModel ? climateDataModel.availableColumns : []
+                    implicitWidth: 130
+                    implicitHeight: 32
+
+                    background: Rectangle {
+                        color: Qt.rgba(255, 255, 255, 0.08)
+                        border.color: columnSelector.hovered ? Qt.rgba(255, 255, 255, 0.2) : Qt.rgba(255, 255, 255, 0.1)
+                        border.width: 1
+                        radius: 6
+                    }
+
+                    contentItem: Label {
+                        text: columnSelector.displayText
+                        color: "white"
+                        font.pixelSize: 12
+                        font.weight: Font.Medium
+                        verticalAlignment: Text.AlignVCenter
+                        leftPadding: 10
+                        elide: Text.ElideRight
+                    }
+
+                    indicator: Label {
+                        x: columnSelector.width - width - 8
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "\u25BC"
+                        color: Qt.rgba(255, 255, 255, 0.5)
+                        font.pixelSize: 8
+                    }
+                }
             }
 
-            ComboBox {
-                id: columnSelector
-                model: climateDataModel ? climateDataModel.availableColumns : []
-                Layout.preferredWidth: 120
+            // Separator
+            Rectangle {
+                width: 1
+                height: 24
+                color: Qt.rgba(255, 255, 255, 0.1)
+                Layout.alignment: Qt.AlignVCenter
+            }
 
-                background: Rectangle {
-                    color: "#2a2a4e"
-                    border.color: "#444"
+            // Opacity section
+            Row {
+                spacing: 10
+                Layout.alignment: Qt.AlignVCenter
+
+                Label {
+                    text: "Opacity"
+                    color: Qt.rgba(255, 255, 255, 0.6)
+                    font.pixelSize: 11
+                    font.weight: Font.Medium
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+
+                Slider {
+                    id: opacitySlider
+                    from: 0
+                    to: 1
+                    value: 0.4
+                    implicitWidth: 100
+                    implicitHeight: 20
+
+                    background: Rectangle {
+                        x: opacitySlider.leftPadding
+                        y: opacitySlider.topPadding + opacitySlider.availableHeight / 2 - height / 2
+                        width: opacitySlider.availableWidth
+                        height: 4
+                        radius: 2
+                        color: Qt.rgba(255, 255, 255, 0.1)
+
+                        Rectangle {
+                            width: opacitySlider.visualPosition * parent.width
+                            height: parent.height
+                            radius: 2
+                            gradient: Gradient {
+                                orientation: Gradient.Horizontal
+                                GradientStop { position: 0.0; color: "#4fc3f7" }
+                                GradientStop { position: 1.0; color: "#29b6f6" }
+                            }
+                        }
+                    }
+
+                    handle: Rectangle {
+                        x: opacitySlider.leftPadding + opacitySlider.visualPosition * (opacitySlider.availableWidth - width)
+                        y: opacitySlider.topPadding + opacitySlider.availableHeight / 2 - height / 2
+                        width: 16
+                        height: 16
+                        radius: 8
+                        color: opacitySlider.pressed ? "#fff" : "#f0f0f0"
+                        border.color: Qt.rgba(0, 0, 0, 0.1)
+                        border.width: 1
+
+                        Behavior on color {
+                            ColorAnimation { duration: 100 }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    width: 40
+                    height: 24
                     radius: 4
+                    color: Qt.rgba(255, 255, 255, 0.08)
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    Label {
+                        anchors.centerIn: parent
+                        text: Math.round(opacitySlider.value * 100) + "%"
+                        color: "white"
+                        font.pixelSize: 11
+                        font.weight: Font.Medium
+                    }
                 }
-
-                contentItem: Label {
-                    text: columnSelector.displayText
-                    color: "white"
-                    verticalAlignment: Text.AlignVCenter
-                    leftPadding: 8
-                }
-            }
-
-            Item { width: 10 }
-
-            Label {
-                text: "Opacity:"
-                color: "white"
-                font.pixelSize: 13
-            }
-
-            Slider {
-                id: opacitySlider
-                from: 0
-                to: 1
-                value: 0.4
-                Layout.preferredWidth: 100
-            }
-
-            Label {
-                text: Math.round(opacitySlider.value * 100) + "%"
-                color: "#aaa"
-                font.pixelSize: 12
-                Layout.preferredWidth: 35
             }
 
             Item { Layout.fillWidth: true }
 
-            CheckBox {
-                id: showOverlayCheck
-                text: "Show Overlay"
-                checked: true
+            // Separator
+            Rectangle {
+                width: 1
+                height: 24
+                color: Qt.rgba(255, 255, 255, 0.1)
+                Layout.alignment: Qt.AlignVCenter
+            }
 
-                contentItem: Label {
-                    text: showOverlayCheck.text
-                    color: "white"
-                    font.pixelSize: 13
-                    leftPadding: showOverlayCheck.indicator.width + 6
-                    verticalAlignment: Text.AlignVCenter
+            // Show overlay toggle
+            Row {
+                spacing: 8
+                Layout.alignment: Qt.AlignVCenter
+
+                Switch {
+                    id: showOverlayCheck
+                    checked: true
+                    implicitHeight: 24
+
+                    indicator: Rectangle {
+                        implicitWidth: 40
+                        implicitHeight: 22
+                        x: showOverlayCheck.leftPadding
+                        y: parent.height / 2 - height / 2
+                        radius: 11
+                        color: showOverlayCheck.checked ? "#4fc3f7" : Qt.rgba(255, 255, 255, 0.15)
+                        border.color: showOverlayCheck.checked ? "#29b6f6" : Qt.rgba(255, 255, 255, 0.1)
+                        border.width: 1
+
+                        Behavior on color {
+                            ColorAnimation { duration: 150 }
+                        }
+
+                        Rectangle {
+                            x: showOverlayCheck.checked ? parent.width - width - 3 : 3
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 16
+                            height: 16
+                            radius: 8
+                            color: "white"
+
+                            Behavior on x {
+                                NumberAnimation { duration: 150; easing.type: Easing.InOutQuad }
+                            }
+                        }
+                    }
+                }
+
+                Label {
+                    text: "Overlay"
+                    color: Qt.rgba(255, 255, 255, 0.9)
+                    font.pixelSize: 12
+                    font.weight: Font.Medium
+                    anchors.verticalCenter: parent.verticalCenter
                 }
             }
         }

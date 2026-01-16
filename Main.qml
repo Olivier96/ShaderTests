@@ -13,7 +13,7 @@ ApplicationWindow {
     // climateDataModel is exposed from C++ via context property
 
     // Sidebar state
-    property bool sidebarExpanded: true
+    property bool sidebarExpanded: false
     property int sidebarExpandedWidth: 200
     property int sidebarCollapsedWidth: 50
 
@@ -213,24 +213,24 @@ ApplicationWindow {
         SplitView {
             Layout.fillWidth: true
             Layout.fillHeight: true
-                orientation: Qt.Horizontal
+            orientation: Qt.Horizontal
 
-                // Left side: Climate Map
-                ClimateMapView {
-                    id: mapView
-                    SplitView.preferredWidth: parent.width * 0.6
-                    SplitView.minimumWidth: 400
-                }
+            // Left side: Climate Map
+            ClimateMapView {
+                id: mapView
+                SplitView.preferredWidth: parent.width * 0.6
+                SplitView.minimumWidth: 400
+            }
 
-                // Right side: Content panel with tabs
-                Rectangle {
-                    SplitView.minimumWidth: 300
-                    SplitView.preferredWidth: parent.width * 0.4
-                    color: "#1a1a2e"
+            // Right side: Content panel with tabs
+            Rectangle {
+                SplitView.minimumWidth: 300
+                SplitView.preferredWidth: parent.width * 0.4
+                color: "#1a1a2e"
 
-                    ColumnLayout {
-                        anchors.fill: parent
-                        spacing: 0
+                ColumnLayout {
+                    anchors.fill: parent
+                    spacing: 0
 
                         // Tab bar
                         TabBar {
@@ -516,4 +516,3 @@ ApplicationWindow {
             }
         }
     }
-}
