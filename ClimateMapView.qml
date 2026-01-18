@@ -870,7 +870,7 @@ Item {
         anchors.leftMargin: 12
         height: controlBarExpanded ? 56 : 0
         radius: 12
-        color: Qt.rgba(20, 20, 35, 0.85)
+        color: Qt.rgba(0, 0, 0, 0.5)
         border.color: Qt.rgba(255, 255, 255, 0.1)
         border.width: 1
         clip: true
